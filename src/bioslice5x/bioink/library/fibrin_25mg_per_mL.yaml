@@ -1,0 +1,15 @@
+# Fibrinogen at 25 mg/mL — crosslinks on contact with thrombin (typically
+# in the support bath or as a co-deposited stream).
+#
+# Rheology source: fibrinogen pre-crosslinking is near-Newtonian at the
+# concentrations used in FRESH; viscosity from PMC9036289 review.
+
+name: fibrin_25mg_per_mL
+density_g_per_mL: 1.02
+rheology:
+  kind: newtonian
+  viscosity_pa_s: 0.5
+working_temperature_c: [4.0, 25.0]
+crosslinking: enzymatic
+calibrated_against: "uncalibrated, literature default"
+notes: "Fibrinogen pre-crosslink; thrombin in bath or co-deposited triggers gelation. Time-sensitive — load just before printing."

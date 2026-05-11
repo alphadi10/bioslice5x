@@ -1,0 +1,185 @@
+; ============================================
+; BioSlice5X G-code (Phase 2a — 3-axis baseline)
+; ============================================
+; Generated:           <TIMESTAMP>
+; Profile:             hypothetical_3axis (rrf)
+; Recipe:              phase_2a_cube
+; Kinematic chain:     three_axis
+;
+; ---- Bioink & cell payloads ----
+; Syringe 0:
+;   Bioink:            collagen_i_8mg_per_mL
+;   Bioink calibrated: uncalibrated, literature default (PMC12001187 typical-range)
+;   Rheology:          power_law
+;   Cell type:         general mammalian (fibroblast / HEK293 / MSC)
+;   Cell density:      1.00e+06 /mL
+;   Cell calibrated:   uncalibrated, literature default (Blaeser et al. 2016)
+;   Needle:            ID=0.84 mm, L=12.7 mm (18G)
+;   Barrel ID:         4.65 mm
+;   Barrel:needle area ratio: 30.6
+;   Temperature:       13.0 C
+;
+; ---- Computed cell-stress summary ----
+; Syringe 0 max wall shear: 275.0 Pa  (threshold: 5000.0 Pa)  [OK]
+; Syringe 0 total bioink:    72.00 uL
+; Estimated print time: 361.0 s
+;
+; ---- Caveats ----
+; - Wall shear stress is the Newtonian estimate with bulk viscosity.
+; - For shear-thinning bioinks, real wall stress may be lower; v2 corrects this.
+; - Single source of truth for axis convention is the machine profile YAML.
+;
+;META: bioink_calibration=uncalibrated
+;META: cells_calibration=uncalibrated
+;META: bath_calibration=none
+;META: shear_model=newtonian_conservative
+;META: extrusion_mode=displacement
+;META: kinematic_chain=three_axis
+;META: firmware=rrf
+;META: safety_override=false
+;META: syringe_count=1
+
+G21       ; mm units
+G90       ; absolute positioning
+M83       ; relative extrusion
+M104 S13 T0  ; syringe 0 bioink temperature
+; ---- start of print ----
+T0  ; switch to syringe 0
+G1 X-3 Y-3 Z0.2 F600  ; travel
+G1 X2.8 Y-3 Z0.2 E0.06831 F60
+G1 X3 Y-3 Z0.2 E0.00236 F60
+G1 X3 Y2.8 Z0.2 E0.06831 F60
+G1 X3 Y3 Z0.2 E0.00236 F60
+G1 X-2.8 Y3 Z0.2 E0.06831 F60
+G1 X-3 Y3 Z0.2 E0.00236 F60
+G1 X-3 Y-2.8 Z0.2 E0.06831 F60
+G1 X-3 Y-3 Z0.2 E0.00236 F60
+G1 X-3 Y-3 Z0.6 F600  ; travel
+G1 X2.4 Y-3 Z0.6 E0.0636 F60
+G1 X3 Y-3 Z0.6 E0.00707 F60
+G1 X3 Y2.4 Z0.6 E0.0636 F60
+G1 X3 Y3 Z0.6 E0.00707 F60
+G1 X-2.4 Y3 Z0.6 E0.0636 F60
+G1 X-3 Y3 Z0.6 E0.00707 F60
+G1 X-3 Y-2.4 Z0.6 E0.0636 F60
+G1 X-3 Y-3 Z0.6 E0.00707 F60
+G1 X-3 Y-3 Z1 F600  ; travel
+G1 X2 Y-3 Z1 E0.05888 F60
+G1 X3 Y-3 Z1 E0.01178 F60
+G1 X3 Y2 Z1 E0.05888 F60
+G1 X3 Y3 Z1 E0.01178 F60
+G1 X-2 Y3 Z1 E0.05888 F60
+G1 X-3 Y3 Z1 E0.01178 F60
+G1 X-3 Y-2 Z1 E0.05888 F60
+G1 X-3 Y-3 Z1 E0.01178 F60
+G1 X-3 Y-3 Z1.4 F600  ; travel
+G1 X1.6 Y-3 Z1.4 E0.05417 F60
+G1 X3 Y-3 Z1.4 E0.01649 F60
+G1 X3 Y1.6 Z1.4 E0.05417 F60
+G1 X3 Y3 Z1.4 E0.01649 F60
+G1 X-1.6 Y3 Z1.4 E0.05417 F60
+G1 X-3 Y3 Z1.4 E0.01649 F60
+G1 X-3 Y-1.6 Z1.4 E0.05417 F60
+G1 X-3 Y-3 Z1.4 E0.01649 F60
+G1 X-3 Y-3 Z1.8 F600  ; travel
+G1 X1.2 Y-3 Z1.8 E0.04946 F60
+G1 X3 Y-3 Z1.8 E0.0212 F60
+G1 X3 Y1.2 Z1.8 E0.04946 F60
+G1 X3 Y3 Z1.8 E0.0212 F60
+G1 X-1.2 Y3 Z1.8 E0.04946 F60
+G1 X-3 Y3 Z1.8 E0.0212 F60
+G1 X-3 Y-1.2 Z1.8 E0.04946 F60
+G1 X-3 Y-3 Z1.8 E0.0212 F60
+G1 X-3 Y-3 Z2.2 F600  ; travel
+G1 X0.8 Y-3 Z2.2 E0.04475 F60
+G1 X3 Y-3 Z2.2 E0.02591 F60
+G1 X3 Y0.8 Z2.2 E0.04475 F60
+G1 X3 Y3 Z2.2 E0.02591 F60
+G1 X-0.8 Y3 Z2.2 E0.04475 F60
+G1 X-3 Y3 Z2.2 E0.02591 F60
+G1 X-3 Y-0.8 Z2.2 E0.04475 F60
+G1 X-3 Y-3 Z2.2 E0.02591 F60
+G1 X-3 Y-3 Z2.6 F600  ; travel
+G1 X0.4 Y-3 Z2.6 E0.04004 F60
+G1 X3 Y-3 Z2.6 E0.03062 F60
+G1 X3 Y0.4 Z2.6 E0.04004 F60
+G1 X3 Y3 Z2.6 E0.03062 F60
+G1 X-0.4 Y3 Z2.6 E0.04004 F60
+G1 X-3 Y3 Z2.6 E0.03062 F60
+G1 X-3 Y-0.4 Z2.6 E0.04004 F60
+G1 X-3 Y-3 Z2.6 E0.03062 F60
+G1 X-3 Y-3 Z3 F600  ; travel
+G1 X-0 Y-3 Z3 E0.03533 F60
+G1 X3 Y-3 Z3 E0.03533 F60
+G1 X3 Y-0 Z3 E0.03533 F60
+G1 X3 Y3 Z3 E0.03533 F60
+G1 X0 Y3 Z3 E0.03533 F60
+G1 X-3 Y3 Z3 E0.03533 F60
+G1 X-3 Y0 Z3 E0.03533 F60
+G1 X-3 Y-3 Z3 E0.03533 F60
+G1 X-3 Y-3 Z3.4 F600  ; travel
+G1 X-0.4 Y-3 Z3.4 E0.03062 F60
+G1 X3 Y-3 Z3.4 E0.04004 F60
+G1 X3 Y-0.4 Z3.4 E0.03062 F60
+G1 X3 Y3 Z3.4 E0.04004 F60
+G1 X0.4 Y3 Z3.4 E0.03062 F60
+G1 X-3 Y3 Z3.4 E0.04004 F60
+G1 X-3 Y0.4 Z3.4 E0.03062 F60
+G1 X-3 Y-3 Z3.4 E0.04004 F60
+G1 X-3 Y-3 Z3.8 F600  ; travel
+G1 X-0.8 Y-3 Z3.8 E0.02591 F60
+G1 X3 Y-3 Z3.8 E0.04475 F60
+G1 X3 Y-0.8 Z3.8 E0.02591 F60
+G1 X3 Y3 Z3.8 E0.04475 F60
+G1 X0.8 Y3 Z3.8 E0.02591 F60
+G1 X-3 Y3 Z3.8 E0.04475 F60
+G1 X-3 Y0.8 Z3.8 E0.02591 F60
+G1 X-3 Y-3 Z3.8 E0.04475 F60
+G1 X-3 Y-3 Z4.2 F600  ; travel
+G1 X-1.2 Y-3 Z4.2 E0.0212 F60
+G1 X3 Y-3 Z4.2 E0.04946 F60
+G1 X3 Y-1.2 Z4.2 E0.0212 F60
+G1 X3 Y3 Z4.2 E0.04946 F60
+G1 X1.2 Y3 Z4.2 E0.0212 F60
+G1 X-3 Y3 Z4.2 E0.04946 F60
+G1 X-3 Y1.2 Z4.2 E0.0212 F60
+G1 X-3 Y-3 Z4.2 E0.04946 F60
+G1 X-3 Y-3 Z4.6 F600  ; travel
+G1 X-1.6 Y-3 Z4.6 E0.01649 F60
+G1 X3 Y-3 Z4.6 E0.05417 F60
+G1 X3 Y-1.6 Z4.6 E0.01649 F60
+G1 X3 Y3 Z4.6 E0.05417 F60
+G1 X1.6 Y3 Z4.6 E0.01649 F60
+G1 X-3 Y3 Z4.6 E0.05417 F60
+G1 X-3 Y1.6 Z4.6 E0.01649 F60
+G1 X-3 Y-3 Z4.6 E0.05417 F60
+G1 X-3 Y-3 Z5 F600  ; travel
+G1 X-2 Y-3 Z5 E0.01178 F60
+G1 X3 Y-3 Z5 E0.05888 F60
+G1 X3 Y-2 Z5 E0.01178 F60
+G1 X3 Y3 Z5 E0.05888 F60
+G1 X2 Y3 Z5 E0.01178 F60
+G1 X-3 Y3 Z5 E0.05888 F60
+G1 X-3 Y2 Z5 E0.01178 F60
+G1 X-3 Y-3 Z5 E0.05888 F60
+G1 X-3 Y-3 Z5.4 F600  ; travel
+G1 X-2.4 Y-3 Z5.4 E0.00707 F60
+G1 X3 Y-3 Z5.4 E0.0636 F60
+G1 X3 Y-2.4 Z5.4 E0.00707 F60
+G1 X3 Y3 Z5.4 E0.0636 F60
+G1 X2.4 Y3 Z5.4 E0.00707 F60
+G1 X-3 Y3 Z5.4 E0.0636 F60
+G1 X-3 Y2.4 Z5.4 E0.00707 F60
+G1 X-3 Y-3 Z5.4 E0.0636 F60
+G1 X-3 Y-3 Z5.8 F600  ; travel
+G1 X-2.8 Y-3 Z5.8 E0.00236 F60
+G1 X3 Y-3 Z5.8 E0.06831 F60
+G1 X3 Y-2.8 Z5.8 E0.00236 F60
+G1 X3 Y3 Z5.8 E0.06831 F60
+G1 X2.8 Y3 Z5.8 E0.00236 F60
+G1 X-3 Y3 Z5.8 E0.06831 F60
+G1 X-3 Y2.8 Z5.8 E0.00236 F60
+G1 X-3 Y-3 Z5.8 E0.06831 F60
+; ---- end of print ----
+M400      ; wait for moves to finish
+M84       ; disable motors

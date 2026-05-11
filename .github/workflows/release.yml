@@ -1,0 +1,92 @@
+name: Release
+
+# Triggered on annotated tag push (v*). Builds:
+#  - sdist + wheel via `uv build`
+#  - standalone PyInstaller single-file binary per OS
+# Uploads all artifacts to the GitHub Release for the tag.
+#
+# PyPI upload is NOT automated — see docs/RELEASING.md for the
+# maintainer-driven `uv publish` step using a Trusted Publisher token.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-wheel:
+    name: Build sdist + wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+      - name: Build
+        run: uv build
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/*.whl
+          fail_on_unmatched_files: true
+
+  build-binary:
+    name: Build binary (${{ matrix.os }})
+    needs: build-wheel
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-13, macos-latest, windows-latest]
+        # macos-13 is x86_64 runner; macos-latest is arm64. Two
+        # separate binaries; universal2 is filed as a v0.1.1 follow-up
+        # per docs/RELEASING.md.
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Set up Python 3.11
+        run: uv python install 3.11
+
+      - name: Sync dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Install PyInstaller
+        run: uv pip install pyinstaller
+
+      - name: Build single-file binary
+        run: uv run pyinstaller build/pyinstaller.spec
+
+      - name: Smoke-test the binary (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          ./dist/bioslice5x --version
+          ./dist/bioslice5x slice --help
+
+      - name: Smoke-test the binary (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          .\dist\bioslice5x.exe --version
+          .\dist\bioslice5x.exe slice --help
+
+      - name: Rename binary with OS tag
+        shell: bash
+        run: |
+          mkdir -p artifact
+          tag="${GITHUB_REF_NAME}"
+          ext=""
+          case "${{ matrix.os }}" in
+            windows-latest) ext=".exe" ;;
+          esac
+          os_tag="${{ matrix.os }}"
+          cp "dist/bioslice5x${ext}" "artifact/bioslice5x-${tag}-${os_tag}${ext}"
+
+      - name: Upload binary to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifact/*
+          fail_on_unmatched_files: true

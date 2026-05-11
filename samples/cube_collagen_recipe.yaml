@@ -1,0 +1,22 @@
+# Sample recipe: a 10 mm cube printed with collagen-I bioink on a single
+# 18G needle. Used in docs/tutorial/quickstart.md.
+#
+# Calibration status: all bioink/cell values are uncalibrated literature
+# defaults. The G-code header will surface this via the META block.
+
+name: cube_collagen_demo
+
+syringes:
+  - id: 0
+    bioink: collagen_i_8mg_per_mL
+    cell_payload: general_mammalian
+    needle:
+      inner_diameter_mm: 0.84
+      length_mm: 12.7
+      gauge_label: "18G"
+
+slicing:
+  layer_height_mm: 0.4
+  line_width_mm: 0.5
+  print_speed_mm_per_min: 60.0
+  infill_density: 0.2  # 20% rectilinear infill — see ADR-002.

@@ -1,0 +1,208 @@
+{
+  "$defs": {
+    "BuildVolume": {
+      "additionalProperties": false,
+      "properties": {
+        "x_mm": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "X Mm",
+          "type": "array"
+        },
+        "y_mm": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Y Mm",
+          "type": "array"
+        },
+        "z_mm": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Z Mm",
+          "type": "array"
+        }
+      },
+      "required": [
+        "x_mm",
+        "y_mm",
+        "z_mm"
+      ],
+      "title": "BuildVolume",
+      "type": "object"
+    },
+    "KinematicChain": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "three_axis",
+            "tilt_swivel"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "swivel": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TiltSwivelAxis"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "tilt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TiltSwivelAxis"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "KinematicChain",
+      "type": "object"
+    },
+    "TiltSwivelAxis": {
+      "additionalProperties": false,
+      "description": "Mapping from a canonical (tilt or swivel) joint to a G-code letter.",
+      "properties": {
+        "invert": {
+          "default": false,
+          "title": "Invert",
+          "type": "boolean"
+        },
+        "letter": {
+          "maxLength": 1,
+          "minLength": 1,
+          "title": "Letter",
+          "type": "string"
+        },
+        "max_feed_deg_per_min": {
+          "default": 5000.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Max Feed Deg Per Min",
+          "type": "number"
+        },
+        "range_deg": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Range Deg",
+          "type": "array"
+        },
+        "rotates_about": {
+          "enum": [
+            "x",
+            "y",
+            "z"
+          ],
+          "title": "Rotates About",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rotates_about",
+        "letter",
+        "range_deg"
+      ],
+      "title": "TiltSwivelAxis",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "build_volume": {
+      "$ref": "#/$defs/BuildVolume"
+    },
+    "firmware": {
+      "default": "rrf",
+      "enum": [
+        "rrf",
+        "marlin"
+      ],
+      "title": "Firmware",
+      "type": "string"
+    },
+    "has_heated_bed": {
+      "default": false,
+      "title": "Has Heated Bed",
+      "type": "boolean"
+    },
+    "kinematic_chain": {
+      "$ref": "#/$defs/KinematicChain"
+    },
+    "max_e_feed_uL_per_min": {
+      "default": 100.0,
+      "exclusiveMinimum": 0.0,
+      "title": "Max E Feed Ul Per Min",
+      "type": "number"
+    },
+    "max_xy_feed_mm_per_min": {
+      "default": 12000.0,
+      "exclusiveMinimum": 0.0,
+      "title": "Max Xy Feed Mm Per Min",
+      "type": "number"
+    },
+    "max_z_feed_mm_per_min": {
+      "default": 750.0,
+      "exclusiveMinimum": 0.0,
+      "title": "Max Z Feed Mm Per Min",
+      "type": "number"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "notes": {
+      "default": "",
+      "title": "Notes",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "build_volume",
+    "kinematic_chain"
+  ],
+  "title": "MachineProfile",
+  "type": "object"
+}

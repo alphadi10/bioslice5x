@@ -1,0 +1,27 @@
+# Reference cell payloads with wall-shear-stress safety thresholds.
+#
+# CAVEAT: these are LITERATURE-DERIVED PLACEHOLDERS, not lab-calibrated values.
+# The BioSlice5X cell-viability check refuses to emit G-code where the
+# Newtonian-estimated wall shear stress exceeds these thresholds, so values
+# here directly gate what prints are allowed. Validate against your own cell
+# line and viability assay before publishing downstream.
+#
+# Sources: Blaeser et al. 2016 (Adv Healthc Mater 5(3):326-333) for the
+# baseline 5 kPa "general mammalian" threshold; endothelial-specific work
+# summarized in MDPI Biomimetics 16/12/436 for the more conservative
+# HUVEC/endothelial 2 kPa default.
+
+cells:
+  general_mammalian:
+    cell_type: "general mammalian (fibroblast / HEK293 / MSC)"
+    cell_density_per_mL: 1.0e6
+    max_wall_shear_stress_pa: 5000.0
+    calibrated_against: "uncalibrated, literature default (Blaeser et al. 2016)"
+    notes: "Conservative threshold for hardy cell lines. Stem-cell-derived populations need a lower limit."
+
+  hUVEC_endothelial:
+    cell_type: "HUVEC / primary endothelial"
+    cell_density_per_mL: 1.0e6
+    max_wall_shear_stress_pa: 2000.0
+    calibrated_against: "uncalibrated, literature default (endothelial-specific reviews)"
+    notes: "Primary endothelial cells are more mechanosensitive than the general baseline."

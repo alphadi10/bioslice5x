@@ -1,0 +1,12 @@
+# Default FRESH support bath: gelatin microparticle slurry, surface at z = 0.
+#
+# CAVEAT: travel_speed_multiplier_in_bath = 0.5 is a first-order placeholder.
+# A real bath-drag model requires per-formulation empirical calibration
+# (particle size distribution, packing density, temperature, bioink
+# viscosity coupling) which v1 does not ship. Operators running in earnest
+# will hand-tune this value.
+
+kind: plane
+surface_z_mm: 0.0
+travel_speed_multiplier_in_bath: 0.5
+calibrated_against: "uncalibrated, literature default"

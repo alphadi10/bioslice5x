@@ -1,0 +1,16 @@
+# Acidified type I collagen at 8 mg/mL — the FRESH/CHIPS workhorse bioink.
+#
+# Rheology source: ACS Biomater Sci Eng 2025 (PMC12001187) bioink assessment
+# protocol summary; consistency K and flow index n are typical-range values.
+# Replace with lab-measured values for publication-grade reproducibility.
+
+name: collagen_i_8mg_per_mL
+density_g_per_mL: 1.04
+rheology:
+  kind: power_law
+  consistency_k: 80.0       # Pa·s^n
+  flow_index_n: 0.1         # highly shear-thinning
+working_temperature_c: [4.0, 22.0]   # storage 4 C; gels above ~22 C
+crosslinking: thermal
+calibrated_against: "uncalibrated, literature default (PMC12001187 typical-range)"
+notes: "Acidified collagen I, gels above ~20 C. Keep on ice during loading. Bath pH neutralizes during deposition."

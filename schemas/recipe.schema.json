@@ -1,0 +1,385 @@
+{
+  "$defs": {
+    "FixedOrientation": {
+      "additionalProperties": false,
+      "description": "Same tilt + swivel applied to every layer of the print.",
+      "properties": {
+        "kind": {
+          "const": "fixed",
+          "default": "fixed",
+          "title": "Kind",
+          "type": "string"
+        },
+        "swivel_deg": {
+          "default": 0.0,
+          "title": "Swivel Deg",
+          "type": "number"
+        },
+        "tilt_deg": {
+          "default": 0.0,
+          "title": "Tilt Deg",
+          "type": "number"
+        }
+      },
+      "title": "FixedOrientation",
+      "type": "object"
+    },
+    "FlatSlicing": {
+      "additionalProperties": false,
+      "description": "Flat horizontal slicing \u2014 Phase 2a/2b default.",
+      "properties": {
+        "kind": {
+          "const": "flat",
+          "default": "flat",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "title": "FlatSlicing",
+      "type": "object"
+    },
+    "Needle": {
+      "additionalProperties": false,
+      "properties": {
+        "gauge_label": {
+          "default": "",
+          "title": "Gauge Label",
+          "type": "string"
+        },
+        "inner_diameter_mm": {
+          "exclusiveMinimum": 0.0,
+          "title": "Inner Diameter Mm",
+          "type": "number"
+        },
+        "length_mm": {
+          "exclusiveMinimum": 0.0,
+          "title": "Length Mm",
+          "type": "number"
+        }
+      },
+      "required": [
+        "inner_diameter_mm",
+        "length_mm"
+      ],
+      "title": "Needle",
+      "type": "object"
+    },
+    "PerLayerOrientation": {
+      "additionalProperties": false,
+      "description": "Per-layer joint angles. Length must match the number of layers the\nslicer produces, or the slicer raises a clear validation error.",
+      "properties": {
+        "kind": {
+          "const": "per_layer",
+          "default": "per_layer",
+          "title": "Kind",
+          "type": "string"
+        },
+        "swivels_deg": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Swivels Deg",
+          "type": "array"
+        },
+        "tilts_deg": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Tilts Deg",
+          "type": "array"
+        }
+      },
+      "title": "PerLayerOrientation",
+      "type": "object"
+    },
+    "PlaneBath": {
+      "additionalProperties": false,
+      "description": "Horizontal-plane support bath: a flat gelatin pool at `surface_z_mm`.\n\nTravels with `point.z < surface_z_mm` are below the surface (in bath)\nand get the configured speed reduction. Travels above run at full speed.\nXY position is ignored \u2014 real meniscus / dish effects need a different\nbath kind.",
+      "properties": {
+        "calibrated_against": {
+          "default": "uncalibrated, literature default",
+          "title": "Calibrated Against",
+          "type": "string"
+        },
+        "kind": {
+          "const": "plane",
+          "default": "plane",
+          "title": "Kind",
+          "type": "string"
+        },
+        "surface_z_mm": {
+          "default": 0.0,
+          "title": "Surface Z Mm",
+          "type": "number"
+        },
+        "travel_speed_multiplier_in_bath": {
+          "default": 0.5,
+          "exclusiveMinimum": 0.0,
+          "maximum": 1.0,
+          "title": "Travel Speed Multiplier In Bath",
+          "type": "number"
+        }
+      },
+      "title": "PlaneBath",
+      "type": "object"
+    },
+    "Region": {
+      "additionalProperties": false,
+      "description": "Which part of the mesh a syringe owns.\n\nv1 supports only kind=\"all\" \u2014 the whole mesh. v2d adds spatial selectors.",
+      "properties": {
+        "kind": {
+          "const": "all",
+          "default": "all",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "title": "Region",
+      "type": "object"
+    },
+    "SlicingParams": {
+      "additionalProperties": false,
+      "properties": {
+        "infill_density": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Infill Density",
+          "type": "number"
+        },
+        "layer_height_mm": {
+          "default": 0.2,
+          "exclusiveMinimum": 0.0,
+          "title": "Layer Height Mm",
+          "type": "number"
+        },
+        "line_width_mm": {
+          "default": 0.4,
+          "exclusiveMinimum": 0.0,
+          "title": "Line Width Mm",
+          "type": "number"
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FlatSlicing"
+            },
+            {
+              "$ref": "#/$defs/WrapAroundAxisSlicing"
+            }
+          ],
+          "title": "Mode"
+        },
+        "print_speed_mm_per_min": {
+          "default": 600.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Print Speed Mm Per Min",
+          "type": "number"
+        },
+        "travel_speed_mm_per_min": {
+          "default": 1200.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Travel Speed Mm Per Min",
+          "type": "number"
+        },
+        "travel_speed_reduction_in_bath": {
+          "default": 0.5,
+          "exclusiveMinimum": 0.0,
+          "maximum": 1.0,
+          "title": "Travel Speed Reduction In Bath",
+          "type": "number"
+        }
+      },
+      "title": "SlicingParams",
+      "type": "object"
+    },
+    "Syringe": {
+      "additionalProperties": false,
+      "properties": {
+        "barrel_inner_diameter_mm": {
+          "default": 4.65,
+          "exclusiveMinimum": 0.0,
+          "title": "Barrel Inner Diameter Mm",
+          "type": "number"
+        },
+        "bioink": {
+          "title": "Bioink",
+          "type": "string"
+        },
+        "cell_payload": {
+          "title": "Cell Payload",
+          "type": "string"
+        },
+        "id": {
+          "minimum": 0,
+          "title": "Id",
+          "type": "integer"
+        },
+        "needle": {
+          "$ref": "#/$defs/Needle"
+        },
+        "purge_volume_uL": {
+          "default": 5.0,
+          "minimum": 0.0,
+          "title": "Purge Volume Ul",
+          "type": "number"
+        },
+        "region": {
+          "$ref": "#/$defs/Region",
+          "default": {
+            "kind": "all"
+          }
+        },
+        "temperature_setpoint_c": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Temperature Setpoint C"
+        },
+        "total_volume_uL": {
+          "default": 1000.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Total Volume Ul",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "bioink",
+        "cell_payload",
+        "needle"
+      ],
+      "title": "Syringe",
+      "type": "object"
+    },
+    "WrapAroundAxisSlicing": {
+      "additionalProperties": false,
+      "description": "Conformal slicing: cylindrical shells around a chosen wrap axis.\n\n`wrap_axis` selects which world axis the cylinder aligns with:\n\n- `\"z\"` (swivel axis on both shipped profiles): swivel sweeps through\n  \u03b8; full arcs always permitted because the swivel axis has\n  effectively unbounded range.\n- `\"x\"` (Prusa tilt axis) or `\"y\"` (Voron tilt axis): tilt sweeps\n  through \u03b8; the requested arc may exceed the profile's tilt range,\n  in which case ADR-001's clamping policy applies \u2014 refuse loudly by\n  default, opt into arc-split via `allow_tilt_arc_split=true` with\n  explicit `arc_split_count`.\n\nSee ADR-001 (`docs/adr/0001-wrap-tilt-clamping.md`).\n\n`conformal_arc_sampling_mm` overrides the default (1 sample per\n`line_width_mm` of arc length). Different bioinks have different\nsensible feature sizes; a 30G needle laying 100 \u00b5m collagen wants a\nfiner sampling than a 22G needle laying 400 \u00b5m GelMA.",
+      "properties": {
+        "allow_tilt_arc_split": {
+          "default": false,
+          "description": "ADR-001: opt-in to splitting a wrap-tilt arc that exceeds the profile's tilt range into N sub-arcs with retract-clear moves between them. Default False = refuse-loudly.",
+          "title": "Allow Tilt Arc Split",
+          "type": "boolean"
+        },
+        "arc_end_deg": {
+          "default": 180.0,
+          "description": "Wrap arc end angle (deg).",
+          "title": "Arc End Deg",
+          "type": "number"
+        },
+        "arc_split_count": {
+          "default": 1,
+          "description": "ADR-001: when allow_tilt_arc_split=true, the number of equal sub-arcs to split into. Must be >= the minimum required by the profile's tilt range; lower values still raise ClampingExceededError.",
+          "minimum": 1,
+          "title": "Arc Split Count",
+          "type": "integer"
+        },
+        "arc_start_deg": {
+          "default": -180.0,
+          "description": "Wrap arc start angle (deg).",
+          "title": "Arc Start Deg",
+          "type": "number"
+        },
+        "conformal_arc_sampling_mm": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Override arc-sample spacing. None \u2192 defaults to line_width_mm.",
+          "title": "Conformal Arc Sampling Mm"
+        },
+        "cylinder_radius_mm": {
+          "description": "Cylinder radius in mm.",
+          "exclusiveMinimum": 0.0,
+          "title": "Cylinder Radius Mm",
+          "type": "number"
+        },
+        "kind": {
+          "const": "wrap_around_axis",
+          "default": "wrap_around_axis",
+          "title": "Kind",
+          "type": "string"
+        },
+        "wrap_axis": {
+          "default": "z",
+          "enum": [
+            "x",
+            "y",
+            "z"
+          ],
+          "title": "Wrap Axis",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cylinder_radius_mm"
+      ],
+      "title": "WrapAroundAxisSlicing",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "bath": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PlaneBath"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "notes": {
+      "default": "",
+      "title": "Notes",
+      "type": "string"
+    },
+    "print_orientation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FixedOrientation"
+        },
+        {
+          "$ref": "#/$defs/PerLayerOrientation"
+        }
+      ],
+      "title": "Print Orientation"
+    },
+    "slicing": {
+      "$ref": "#/$defs/SlicingParams"
+    },
+    "syringes": {
+      "items": {
+        "$ref": "#/$defs/Syringe"
+      },
+      "minItems": 1,
+      "title": "Syringes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "name",
+    "syringes"
+  ],
+  "title": "Recipe",
+  "type": "object"
+}
