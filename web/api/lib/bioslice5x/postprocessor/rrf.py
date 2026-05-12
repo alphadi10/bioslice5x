@@ -240,9 +240,7 @@ def _header(
 
     now = datetime.now(UTC).replace(microsecond=0).isoformat()
     chain_banner = (
-        "5-axis tilt+swivel"
-        if profile.kinematic_chain.kind == "tilt_swivel"
-        else "3-axis baseline"
+        "5-axis tilt+swivel" if profile.kinematic_chain.kind == "tilt_swivel" else "3-axis baseline"
     )
     lines.append("; ============================================")
     lines.append(f"; BioSlice5X G-code ({chain_banner})")
@@ -293,18 +291,10 @@ def _header(
     lines.append("; - For shear-thinning bioinks, real wall stress may be lower; v2 corrects this.")
     lines.append("; - Single source of truth for axis convention is the machine profile YAML.")
     if profile.kinematic_chain.kind == "tilt_swivel":
-        lines.append(
-            "; - F tokens are firmware-cartesian (RRF interprets F against the move's"
-        )
-        lines.append(
-            ";   total motion vector). On rotary-dominant conformal moves, deposition"
-        )
-        lines.append(
-            ";   speed at the substrate may differ from F; verify with a one-perimeter"
-        )
-        lines.append(
-            ";   dry-run before committing cells. Hardware-calibrated rotary-aware"
-        )
+        lines.append("; - F tokens are firmware-cartesian (RRF interprets F against the move's")
+        lines.append(";   total motion vector). On rotary-dominant conformal moves, deposition")
+        lines.append(";   speed at the substrate may differ from F; verify with a one-perimeter")
+        lines.append(";   dry-run before committing cells. Hardware-calibrated rotary-aware")
         lines.append(";   F scaling is a v0.2.0 deliverable.")
     lines.append(";")
     lines.extend(_meta_block(profile, recipe, syringes_by_id, force_override))
@@ -452,11 +442,7 @@ def emit_rrf(
             tokens.append(f"E{_fmt(plunger_mm, decimals=5)}")
         tokens.append(f"F{_fmt(move.feed_mm_per_min, decimals=1)}")
         if move.is_travel:
-            comment = (
-                "  ; travel (sub-arc start)"
-                if move.is_sub_arc_start
-                else "  ; travel"
-            )
+            comment = "  ; travel (sub-arc start)" if move.is_sub_arc_start else "  ; travel"
         else:
             stress_pa = stress_by_segment.get(move.segment_id)
             comment = f"  ;STRESS:{_fmt(stress_pa, decimals=2)}" if stress_pa is not None else ""
@@ -489,16 +475,17 @@ def emit_rrf(
         tilt = profile.kinematic_chain.tilt
         swivel = profile.kinematic_chain.swivel
         # tilt+swivel == both present per KinematicChain validation.
-        assert tilt is not None and swivel is not None
+        assert tilt is not None
+        assert swivel is not None
         home_tokens = ["G1"]
         home_tokens.append(f"{tilt.letter}0")
         home_tokens.append(f"{swivel.letter}0")
-        home_tokens.append(f"F{_fmt(min(tilt.max_feed_deg_per_min, swivel.max_feed_deg_per_min), decimals=1)}")
+        home_tokens.append(
+            f"F{_fmt(min(tilt.max_feed_deg_per_min, swivel.max_feed_deg_per_min), decimals=1)}"
+        )
         lines.append(" ".join(home_tokens) + "  ; rotaries home")
     for syringe_id in sorted(syringes_by_id):
-        lines.append(
-            f"M104 S0 T{syringe_id}  ; release syringe {syringe_id} thermal setpoint"
-        )
+        lines.append(f"M104 S0 T{syringe_id}  ; release syringe {syringe_id} thermal setpoint")
     lines.append("M400      ; wait for moves to finish")
     lines.append("M84       ; disable motors")
 

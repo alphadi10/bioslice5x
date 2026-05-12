@@ -32,7 +32,7 @@ _SCRIPTS = _REPO_ROOT / "scripts"
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-from verify_5axis_gcode import verify  # noqa: E402
+from verify_5axis_gcode import verify  # type: ignore[import-not-found]  # noqa: E402
 
 from bioslice5x import Slicer, load_profile  # noqa: E402
 from bioslice5x.recipe.models import (  # noqa: E402
@@ -190,8 +190,6 @@ def test_rotational_a_and_c_letters_match_open5x_prusa() -> None:
         letters = {t[0] for t in toks if t and t[0].isalpha()}
         assert "A" in letters, f"no A token on Prusa profile: {line!r}"
         assert "C" in letters, f"no C token on Prusa profile: {line!r}"
-        assert "B" not in letters, (
-            f"unexpected B token (Voron) on Prusa-profile output: {line!r}"
-        )
+        assert "B" not in letters, f"unexpected B token (Voron) on Prusa-profile output: {line!r}"
         return
     pytest.fail("no extrusion G1 line found")

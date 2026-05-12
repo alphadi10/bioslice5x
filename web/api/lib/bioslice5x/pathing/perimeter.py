@@ -65,7 +65,9 @@ def _transform_polygon_vertices_batch(
         arr[i, 1] = y
         arr[i, 2] = part_z
     out = chain.part_to_machine_batch_same_joints(arr, joints)
-    return [Point3D(float(out[i, 0]), float(out[i, 1]), float(out[i, 2])) for i in range(len(poly_pts))]
+    return [
+        Point3D(float(out[i, 0]), float(out[i, 1]), float(out[i, 2])) for i in range(len(poly_pts))
+    ]
 
 
 def generate_perimeter_paths(

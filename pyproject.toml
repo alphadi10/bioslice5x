@@ -109,20 +109,39 @@ root_package = "bioslice5x"
 [[tool.importlinter.contracts]]
 name = "Layered architecture"
 type = "layers"
+# Sibling imports within the same layer are legitimate (e.g. `cli` calling
+# `slicer`, `recipe.loader` deserializing `recipe.models`, the conformal
+# slicer reading tilt range from `profile.models`). The layered contract
+# is still load-bearing: lower layers must not import higher layers. The
+# layer-internal coupling is enforced by the `forbidden` contracts below,
+# which call out the specific cross-cuts we actually want to police.
+exhaustive = false
+containers = ["bioslice5x"]
 layers = [
-    "bioslice5x.cli | bioslice5x.slicer",
-    "bioslice5x.postprocessor",
-    "bioslice5x.extruder | bioslice5x.pathing | bioslice5x.recipe.orientation",
+    "cli | slicer",
+    "postprocessor",
+    "extruder | pathing | recipe.orientation",
     # recipe.orientation is at layer 3 above; the parent `bioslice5x.recipe`
     # can't appear here without "shared descendants" — list its other
     # submodules explicitly instead.
-    "bioslice5x.bath | bioslice5x.profile | bioslice5x.recipe.models | bioslice5x.recipe.loader | bioslice5x.geometry | bioslice5x.kinematics.chain | bioslice5x.kinematics.singularity",
-    "bioslice5x.bioink | bioslice5x.errors | bioslice5x.kinematics.canonical",
+    "bath | profile | recipe.models | recipe.loader | geometry | kinematics.chain | kinematics.singularity",
+    "bioink | errors | kinematics.canonical",
 ]
 ignore_imports = [
-    # The bath protocol uses Point3DLike (a structural Protocol) instead
-    # of importing pathing types — but pathing's bath-aware travel helper
-    # legitimately consumes BathSurface. That's the correct direction.
+    # Same-layer sibling imports — the layered contract treats these as
+    # violations by default; in this codebase they are intentional and
+    # documented (CONTRIBUTING.md "the recipe loader returns a recipe").
+    "bioslice5x.recipe.loader -> bioslice5x.recipe.models",
+    "bioslice5x.recipe.models -> bioslice5x.bath.models",
+    "bioslice5x.kinematics.chain -> bioslice5x.profile.models",
+    "bioslice5x.geometry.conformal_slicer -> bioslice5x.profile.models",
+    "bioslice5x.geometry.conformal_slicer -> bioslice5x.recipe.models",
+    "bioslice5x.geometry.clip -> bioslice5x.recipe.models",
+    "bioslice5x.extruder.validate -> bioslice5x.pathing.types",
+    "bioslice5x.bioink.loader -> bioslice5x.errors",
+    "bioslice5x.cli -> bioslice5x.slicer",
+    "bioslice5x.cli -> bioslice5x",
+    "bioslice5x -> bioslice5x.slicer",
 ]
 
 [[tool.importlinter.contracts]]

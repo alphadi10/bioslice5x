@@ -41,7 +41,6 @@ from http.server import BaseHTTPRequestHandler
 from typing import Any
 
 import api._common as _common  # noqa: F401  (side-effect: sys.path)
-from api._common import cors_preflight, error_response, json_response
 
 # Module-level imports — keep them out of `_slice()` so Vercel can cache
 # the import state across warm invocations. Cold-start savings of
@@ -49,6 +48,7 @@ from api._common import cors_preflight, error_response, json_response
 # of holding trimesh + bioslice5x in memory across requests is bounded
 # (single-tenant serverless function) and worth the latency reduction.
 import trimesh  # type: ignore[import-untyped]
+from api._common import cors_preflight, error_response, json_response
 
 from bioslice5x.errors import CellViabilityError
 from bioslice5x.profile.loader import load_profile as _load_profile_uncached

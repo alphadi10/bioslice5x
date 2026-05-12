@@ -242,6 +242,19 @@
           "title": "Print Speed Mm Per Min",
           "type": "number"
         },
+        "safe_park_clearance_mm": {
+          "default": 10.0,
+          "minimum": 0.0,
+          "title": "Safe Park Clearance Mm",
+          "type": "number"
+        },
+        "singularity_threshold_deg": {
+          "default": 2.0,
+          "exclusiveMinimum": 0.0,
+          "maximum": 15.0,
+          "title": "Singularity Threshold Deg",
+          "type": "number"
+        },
         "travel_speed_mm_per_min": {
           "default": 1200.0,
           "exclusiveMinimum": 0.0,
@@ -300,6 +313,12 @@
             }
           ],
           "title": "Region"
+        },
+        "retract_volume_uL": {
+          "default": 0.5,
+          "minimum": 0.0,
+          "title": "Retract Volume Ul",
+          "type": "number"
         },
         "temperature_setpoint_c": {
           "anyOf": [

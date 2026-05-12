@@ -128,9 +128,9 @@ def main() -> int:
     print(f"  wrote {tilted_out.name}")
 
     cyl_out = _REPO_ROOT / "cylinder.gcode"
-    Slicer(profile=prusa, recipe=_cylinder_conformal_recipe()).slice(
-        _cylinder_mesh()
-    ).write_gcode(cyl_out)
+    Slicer(profile=prusa, recipe=_cylinder_conformal_recipe()).slice(_cylinder_mesh()).write_gcode(
+        cyl_out
+    )
     print(f"  wrote {cyl_out.name}")
 
     return 0

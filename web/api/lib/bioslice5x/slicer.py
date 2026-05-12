@@ -97,9 +97,7 @@ class SliceResult:
             if in_print and line.startswith("G1"):
                 # Tokens after the leading "G1": "X-3", "Y-3", "Z0.2", etc.
                 tokens_after = line.split()[1:]
-                is_motion = any(
-                    t and t[0] in motion_letters for t in tokens_after
-                )
+                is_motion = any(t and t[0] in motion_letters for t in tokens_after)
                 if not is_motion:
                     # Plunger-only retract / un-retract — pass through if
                     # we are still inside the budget, drop if we've stopped

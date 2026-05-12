@@ -124,9 +124,7 @@ def test_retract_disabled_when_volume_zero() -> None:
     """retract_volume_uL=0 emits zero retract pulses; pre-v0.1.2 output."""
     gcode = _slice_text(_recipe(retract_volume_uL=0.0))
     retracts = [line for line in gcode.splitlines() if line.startswith("G1 E-")]
-    un_retracts = [
-        line for line in gcode.splitlines() if "un-retract" in line
-    ]
+    un_retracts = [line for line in gcode.splitlines() if "un-retract" in line]
     assert retracts == []
     assert un_retracts == []
 
@@ -233,9 +231,7 @@ def test_safe_park_rotaries_home_on_tilt_swivel_chain() -> None:
 def test_safe_park_releases_each_syringe_heater() -> None:
     """Every syringe gets an M104 S0 T<n> at end-of-print."""
     gcode = _slice_text(_recipe())
-    release_lines = [
-        line for line in gcode.splitlines() if line.startswith("M104 S0 T")
-    ]
+    release_lines = [line for line in gcode.splitlines() if line.startswith("M104 S0 T")]
     assert len(release_lines) >= 1
     # Exactly one per syringe.
     assert any(line.startswith("M104 S0 T0") for line in release_lines)
