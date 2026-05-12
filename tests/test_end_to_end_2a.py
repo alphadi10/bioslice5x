@@ -138,8 +138,19 @@ def test_dry_run_truncates_moves() -> None:
     slicer = Slicer(profile=profile, recipe=_safe_recipe())
     result = slicer.slice(_cube_mesh(size_mm=6.0))
     dry = result.dry_run(n_moves=3)
-    g1_lines = [line for line in dry.splitlines() if line.startswith("G1")]
-    assert len(g1_lines) == 3
+    # `dry_run` counts toolpath-motion G1 lines (those carrying X/Y/Z/A/B/C
+    # tokens). Plunger-only retract / un-retract pulses are accessories to
+    # their wrapping travel and pass through without burning the budget,
+    # and the safe-park EOF Z move is always preserved.
+    motion_letters = ("X", "Y", "Z", "A", "B", "C")
+    motion_g1 = [
+        line
+        for line in dry.splitlines()
+        if line.startswith("G1 ")
+        and any(t and t[0] in motion_letters for t in line.split()[1:])
+        and "safe-park" not in line
+    ]
+    assert len(motion_g1) == 3
     assert "dry-run truncated" in dry
 
 

@@ -71,9 +71,16 @@ class SliceResult:
         Used for hardware commissioning: drive these few moves manually and
         verify that the rotation directions match the commanded signs.
         See `docs/OPEN5X_NOTES.md` §2.
+
+        Only G1 lines that carry toolpath motion (X/Y/Z/A/B/C tokens) are
+        counted. Plunger-only retract / un-retract lines (`G1 E-... F...`)
+        pass through as accessories to their wrapping travel and do not
+        burn the budget — otherwise enabling retract would silently halve
+        the number of toolpath moves the operator sees.
         """
         if n_moves <= 0:
             raise ValueError(f"n_moves must be positive, got {n_moves}")
+        motion_letters = ("X", "Y", "Z", "A", "B", "C")
         out_lines: list[str] = []
         in_print = False
         emitted = 0
@@ -88,6 +95,18 @@ class SliceResult:
                 in_print = False
                 continue
             if in_print and line.startswith("G1"):
+                # Tokens after the leading "G1": "X-3", "Y-3", "Z0.2", etc.
+                tokens_after = line.split()[1:]
+                is_motion = any(
+                    t and t[0] in motion_letters for t in tokens_after
+                )
+                if not is_motion:
+                    # Plunger-only retract / un-retract — pass through if
+                    # we are still inside the budget, drop if we've stopped
+                    # emitting motion (no straggling retract after the cut).
+                    if emitted < n_moves:
+                        out_lines.append(line)
+                    continue
                 if emitted < n_moves:
                     out_lines.append(line)
                     emitted += 1
@@ -143,6 +162,7 @@ class Slicer:
             bioink=bioink,
             cell_payload=self._cells[syringe_spec.cell_payload],
             temperature_setpoint_c=temp,
+            retract_volume_uL=syringe_spec.retract_volume_uL,
         )
 
     def slice(self, mesh: trimesh.Trimesh, *, force: bool = False) -> SliceResult:

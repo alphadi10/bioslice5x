@@ -1,4 +1,4 @@
-# Known limitations as of v0.1.0
+# Known limitations as of v0.1.2-dev
 
 This document lists what BioSlice5X v0.1.0 deliberately does not do.
 Anything here is either filed for a future version or out of scope per
@@ -24,6 +24,29 @@ publication-grade work.
 - **Wrap-around-tilt-axis** requires either an arc that fits within the
   profile's tilt range or explicit `allow_tilt_arc_split` opt-in. See
   ADR-001.
+- **Sub-arc tilt re-centering is not implemented (v0.1.2 follow-up).**
+  `geometry/conformal_slicer._min_arc_split_count` divides the requested
+  arc by the full range (`hi - lo`), but each sub-arc's canonical tilt
+  values must also lie inside `[lo, hi]` after the per-vertex mapping.
+  For Voron (±110°), a 360° wrap split into N sub-arcs still produces
+  canonical tilts at the wrap-start angle (e.g. -180°) which is outside
+  ±110°. The rotary-range clamp in `postprocessor.rrf._axis_token` now
+  refuses these cases with a clear `ProfileValidationError` rather than
+  emitting hardware-invalid G-code. The proper fix is per-sub-arc tilt
+  re-centering (shift each sub-arc's canonical tilt so the values fit
+  within the axis range, emit a pose-change move between sub-arcs);
+  filed for v0.1.2 follow-up. In the meantime, prints whose
+  geometry-derived tilt exceeds the profile's tilt range must use a
+  smaller wrap or a swivel-axis wrap (`wrap_axis="z"`).
+- **F-token feed semantics on rotary-dominant moves.** RRF interprets
+  `F` against the move's total motion vector. On conformal moves where
+  the rotaries do most of the work and X/Y/Z motion is small, the
+  firmware-cartesian F can fall well below the part-frame deposition
+  speed the recipe specifies. The slicer surfaces this via a
+  `;META: feed_token_semantics=cartesian_dominant` line and a caveat in
+  the file header; rotary-aware F scaling that targets a constant
+  substrate-deposition speed is a v0.2.0 deliverable, gated on hardware
+  calibration data.
 - **The conformal slicer assumes a roughly-cylindrical mesh** along the
   wrap axis. Non-cylindrical meshes with `wrap_around_axis` mode produce
   paths that ignore the actual mesh radius variation. Mesh-aware radial
@@ -39,9 +62,13 @@ publication-grade work.
   intersection) and `Region(kind="submesh")` (named submesh in
   multi-object STL/OBJ) are reserved in the schema and will be
   implemented in v0.1.1.
-- **No per-bioink retraction or priming** at tool change. The `T<n>`
-  G-code line switches the tool; bioink-specific retract volumes and
-  prime sequences are v0.1.1.
+- **Per-syringe retract is volumetric (`retract_volume_uL`), not yet
+  bioink-keyed.** Each syringe in the recipe sets its own retract
+  volume; the emitter pairs `G1 E-<mm>` before travels and `G1 E+<mm>`
+  after, with the volume converted to plunger-mm via the syringe's
+  barrel cross-section. Bioink-derived retract defaults (so the
+  library, not the recipe, supplies a sensible default per material)
+  are a v0.2.0 follow-up.
 - **Naive layer ordering** — all of syringe 0's work, then all of
   syringe 1's, etc. Smart cross-region travel minimization is a v0.1.1
   optimization, filed as a known good-quality issue not a correctness

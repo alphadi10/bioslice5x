@@ -177,15 +177,21 @@ def test_rotational_a_and_c_letters_match_open5x_prusa() -> None:
     would silently emit B+C (Voron) tokens for a Prusa-targeted print.
     """
     gcode = _slice_vascular()
-    # Pick one extrusion line and verify it carries both A and C, not B.
+    # Pick a toolpath extrusion line (carries motion tokens + E, not a
+    # retract pulse) and verify it carries both A and C, not B.
+    motion_letters = ("X", "Y", "Z", "A", "B", "C")
     for line in gcode.splitlines():
-        if line.startswith("G1") and " E" in line:
-            toks = line.split()
-            letters = {t[0] for t in toks if t and t[0].isalpha()}
-            assert "A" in letters, f"no A token on Prusa profile: {line!r}"
-            assert "C" in letters, f"no C token on Prusa profile: {line!r}"
-            assert "B" not in letters, (
-                f"unexpected B token (Voron) on Prusa-profile output: {line!r}"
-            )
-            return
+        if not (line.startswith("G1") and " E" in line):
+            continue
+        tokens_after = line.split()[1:]
+        if not any(t and t[0] in motion_letters for t in tokens_after):
+            continue  # E-only retract / un-retract pulse
+        toks = line.split()
+        letters = {t[0] for t in toks if t and t[0].isalpha()}
+        assert "A" in letters, f"no A token on Prusa profile: {line!r}"
+        assert "C" in letters, f"no C token on Prusa profile: {line!r}"
+        assert "B" not in letters, (
+            f"unexpected B token (Voron) on Prusa-profile output: {line!r}"
+        )
+        return
     pytest.fail("no extrusion G1 line found")

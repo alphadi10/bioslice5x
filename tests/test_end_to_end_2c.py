@@ -78,9 +78,19 @@ def test_conformal_cylinder_produces_gcode_with_C_tokens() -> None:
         _cylinder_mesh(radius_mm=5.0, height_mm=10.0)
     )
     gcode = result.gcode
-    g1_lines = [line for line in gcode.splitlines() if line.startswith("G1 ")]
+    # Toolpath moves only — drop retract/un-retract plunger pulses (E-only
+    # G1 lines) and the EOF safe-park / rotaries-home lines.
+    motion_letters = ("X", "Y", "Z", "A", "B", "C")
+    g1_lines = [
+        line
+        for line in gcode.splitlines()
+        if line.startswith("G1 ")
+        and any(t and t[0] in motion_letters for t in line.split()[1:])
+        and "safe-park" not in line
+        and "rotaries home" not in line
+    ]
     assert len(g1_lines) > 0
-    # Every G1 carries an A (always 0 in this mode) and a C token.
+    # Every toolpath G1 carries an A (always 0 in this mode) and a C token.
     for line in g1_lines:
         tokens = line.split()
         a_tokens = [t for t in tokens if t.startswith("A")]

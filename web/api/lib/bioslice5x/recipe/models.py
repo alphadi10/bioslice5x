@@ -96,6 +96,14 @@ class Syringe(BaseModel):
     total_volume_uL: float = Field(default=1000.0, gt=0.0)
     # If None, the slicer uses the midpoint of the bioink's working temperature.
     temperature_setpoint_c: float | None = None
+    # Volumetric retract applied before every travel + before sub-arc-start
+    # layers and reversed after the travel. Volumetric (µL) — NOT a fixed
+    # plunger-mm number — because retract is bioink-and-needle-specific and
+    # labs swap syringes during development. Set to 0.0 to disable retract
+    # entirely (matches pre-v0.1.2 behaviour). Default 0.5 µL is a sensible
+    # FRESH starting point for 22-25G needles on 1 mL slip-tip syringes;
+    # tune per syringe/bioink combo and confirm with a one-perimeter dry-run.
+    retract_volume_uL: float = Field(default=0.5, ge=0.0)
 
 
 class FixedOrientation(BaseModel):
@@ -212,6 +220,19 @@ class SlicingParams(BaseModel):
         default=0.0,
         description="Base angle of rectilinear scan-lines (deg); layer N rotates by 90·N.",
     )
+    # Singularity smoothing threshold for tilt-swivel chains. Vertices whose
+    # tilt magnitude is below this threshold sit in the singular band where
+    # swivel changes do not meaningfully change tool orientation; the
+    # conformal path generator linearly interpolates swivel across contiguous
+    # in-band runs so the rotaries do not jitter through degenerate poses.
+    # See `kinematics/singularity.py`. Default 2° matches the reviewer-
+    # recommended value from ARCHITECTURE.md §7.
+    singularity_threshold_deg: float = Field(default=2.0, gt=0.0, le=15.0)
+    # Safe-park altitude (machine-frame Z) for the end-of-print sequence.
+    # The slicer raises Z to `current + safe_park_clearance_mm` after the
+    # last extrusion before homing the rotaries, so the needle clears any
+    # FRESH bath geometry that may be at print-top.
+    safe_park_clearance_mm: float = Field(default=10.0, ge=0.0)
 
 
 class Recipe(BaseModel):

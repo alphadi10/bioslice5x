@@ -8,6 +8,11 @@ need to know which slicer produced the path.
 Bath travel-speed reduction: queried per-travel-Z from the recipe's bath
 spec. If no bath is specified, falls back to the legacy
 `slicing.travel_speed_reduction_in_bath` uniform multiplier.
+
+Before path materialization, the global joint sequence is run through
+`smooth_through_singularity` so contiguous runs of in-band tilt do not
+emit swivel jitter through the singular pose. The smoothing threshold is
+recipe-controlled (`slicing.singularity_threshold_deg`).
 """
 
 from __future__ import annotations
@@ -15,8 +20,10 @@ from __future__ import annotations
 import math
 
 from bioslice5x.bath.models import BathSpec
-from bioslice5x.geometry.conformal_slicer import ConformalLayer
+from bioslice5x.geometry.conformal_slicer import ConformalLayer, ConformalVertex
+from bioslice5x.kinematics.canonical import JointAngles
 from bioslice5x.kinematics.chain import KinematicChain
+from bioslice5x.kinematics.singularity import smooth_through_singularity
 from bioslice5x.pathing.types import Move, Point3D
 from bioslice5x.recipe.models import SlicingParams
 
@@ -51,6 +58,58 @@ def _bath_aware_travel_feed(
     return base * bath.travel_speed_multiplier(point)
 
 
+def _smooth_layer_joints(
+    layers: list[ConformalLayer],
+    *,
+    threshold_rad: float,
+) -> list[list[JointAngles]]:
+    """Smooth swivel through singular spans across the full print's joint
+    sequence, then split back into per-layer lists.
+
+    Smoothing applies when tilt occasionally crosses the singular band
+    inside a path that otherwise spans real tilt motion — the wrap-tilt-
+    axis (x or y) case. For a wrap-around-Z print, tilt is identically
+    zero by construction (the canonical formula is `swivel = -θ`,
+    `tilt = 0`) and the swivel sweep IS the deposition path, not a free
+    tool-orientation choice. Collapsing swivel through the "singular
+    band" there would erase the print. Detect that case by checking
+    whether any joint sits *outside* the band, and skip smoothing if
+    none do.
+
+    The smoothing is otherwise done on the concatenated joint sequence
+    (not per-layer) so a singular span that straddles two layers — common
+    when the layer transition lies inside the singular band — is
+    interpolated as one span rather than two abrupt ones.
+    """
+    flat: list[JointAngles] = []
+    spans: list[int] = []  # vertex count per layer
+    for layer in layers:
+        spans.append(len(layer.vertices))
+        flat.extend(v.joints for v in layer.vertices)
+    has_out_of_band = any(abs(j.tilt_rad) >= threshold_rad for j in flat)
+    if not has_out_of_band:
+        # Every joint sits inside the singular band — almost certainly a
+        # wrap-around-swivel-axis print where swivel encodes the path.
+        # Smoothing here would interpolate the path to nothing.
+        cursor = 0
+        out: list[list[JointAngles]] = []
+        for n in spans:
+            out.append(flat[cursor : cursor + n])
+            cursor += n
+        return out
+    smoothed = smooth_through_singularity(
+        flat,
+        threshold_rad=threshold_rad,
+        warn=False,
+    )
+    out = []
+    cursor = 0
+    for n in spans:
+        out.append(smoothed[cursor : cursor + n])
+        cursor += n
+    return out
+
+
 def generate_conformal_perimeter_paths(
     layers: list[ConformalLayer],
     syringe_id: int,
@@ -64,10 +123,35 @@ def generate_conformal_perimeter_paths(
     volume_per_mm_uL = slicing.line_width_mm * slicing.layer_height_mm
     extrude_feed = slicing.print_speed_mm_per_min
 
+    # Apply singularity smoothing on the global joint sequence before
+    # materializing the path. The smoothed joints replace each vertex's
+    # tilt/swivel via a fresh ConformalVertex with the original part_xyz
+    # so downstream code stays unchanged.
+    smoothed_per_layer = _smooth_layer_joints(
+        layers,
+        threshold_rad=math.radians(slicing.singularity_threshold_deg),
+    )
+    layers_smoothed: list[ConformalLayer] = []
+    for layer, smoothed_joints in zip(layers, smoothed_per_layer, strict=True):
+        smoothed_vertices = tuple(
+            ConformalVertex(part_xyz=v.part_xyz, joints=j)
+            for v, j in zip(layer.vertices, smoothed_joints, strict=True)
+        )
+        layers_smoothed.append(
+            ConformalLayer(
+                layer_index=layer.layer_index,
+                s_along_axis_mm=layer.s_along_axis_mm,
+                vertices=smoothed_vertices,
+                is_closed=layer.is_closed,
+                is_sub_arc_start=layer.is_sub_arc_start,
+                sub_arc_index=layer.sub_arc_index,
+            )
+        )
+
     current = start_position if start_position is not None else Point3D(0.0, 0.0, 0.0)
     moves: list[Move] = []
 
-    for layer in layers:
+    for layer in layers_smoothed:
         if not layer.vertices:
             continue
         # Transform every vertex's part-frame point through the kinematic
@@ -94,6 +178,11 @@ def generate_conformal_perimeter_paths(
         # distance isn't the right scalar for travel timing.
         first = machine_pts[0]
         if current != first:
+            travel_segment_id = (
+                f"L{layer.layer_index:04d}_SUBARC{layer.sub_arc_index:02d}_T"
+                if layer.is_sub_arc_start
+                else f"L{layer.layer_index:04d}_T"
+            )
             moves.append(
                 Move(
                     start=current,
@@ -102,8 +191,9 @@ def generate_conformal_perimeter_paths(
                     is_travel=True,
                     extrusion_volume_uL=0.0,
                     feed_mm_per_min=_bath_aware_travel_feed(first, slicing, bath),
-                    segment_id=f"L{layer.layer_index:04d}_T",
+                    segment_id=travel_segment_id,
                     joints=layer.vertices[0].joints,
+                    is_sub_arc_start=layer.is_sub_arc_start,
                 )
             )
             current = first

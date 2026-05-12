@@ -114,6 +114,12 @@ def parse_gcode(path: str | Path) -> tuple[list[ParsedMove], dict[str, str]]:
         tokens = dict(_TOKEN_RE.findall(stripped))
         if not tokens:
             continue
+        # Skip E-only retract lines (`G1 E-<mm> F<...>`). They are pump-only
+        # plunger moves that carry no toolpath motion; counting them as
+        # extrusion would yield negative volumes and bogus shear readings.
+        has_motion = any(k in tokens for k in ("X", "Y", "Z", "A", "B", "C"))
+        if "E" in tokens and not has_motion:
+            continue
         new_x = float(tokens["X"]) if "X" in tokens else cur_x
         new_y = float(tokens["Y"]) if "Y" in tokens else cur_y
         new_z = float(tokens["Z"]) if "Z" in tokens else cur_z

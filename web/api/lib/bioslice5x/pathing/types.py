@@ -63,6 +63,11 @@ class Move:
     segment_id: str  # stable identifier for error reporting
     joints: JointAngles | None = None
     effective_length_mm_override: float | None = None
+    # Marks the travel that lands on the first vertex of a new sub-arc when
+    # arc-split is active (ADR-001). The emitter uses this to force a
+    # retract-clear pair around the sub-arc transition independent of the
+    # general travel retract heuristic.
+    is_sub_arc_start: bool = False
 
     @property
     def length_mm(self) -> float:

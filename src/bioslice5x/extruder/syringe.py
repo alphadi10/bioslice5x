@@ -31,12 +31,20 @@ class DisplacementSyringe:
     bioink: Bioink
     cell_payload: CellPayload
     temperature_setpoint_c: float
+    # Volumetric retract emitted around travels and sub-arc boundaries.
+    # 0.0 disables retract; otherwise the emitter prepends a `G1 E-<mm>`
+    # line before each travel and a `G1 E+<mm>` line after, where mm is
+    # `volume_to_plunger_mm(retract_volume_uL)`. See pathing/types.py
+    # for the move-level contract and rrf.py for the emission.
+    retract_volume_uL: float = 0.0
 
     def __post_init__(self) -> None:
         if self.barrel_inner_diameter_mm <= 0:
             raise ValueError("barrel_inner_diameter_mm must be > 0")
         if self.total_volume_uL <= 0:
             raise ValueError("total_volume_uL must be > 0")
+        if self.retract_volume_uL < 0:
+            raise ValueError("retract_volume_uL must be >= 0")
         lo, hi = self.bioink.working_temperature_c
         if not (lo - 1.0 <= self.temperature_setpoint_c <= hi + 1.0):
             raise ValueError(
