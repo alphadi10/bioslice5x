@@ -1,0 +1,10 @@
+# Vercel Python serverless runtime. Pinned to versions that match the
+# bioslice5x main project's pyproject.toml so the vendored package
+# behaves identically server-side and locally.
+pydantic>=2.6,<3
+PyYAML>=6.0
+numpy>=1.26
+trimesh>=4.4
+shapely>=2.0
+networkx>=3.2
+scipy>=1.13

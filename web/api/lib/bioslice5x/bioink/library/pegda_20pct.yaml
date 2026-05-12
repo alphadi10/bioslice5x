@@ -1,0 +1,17 @@
+# Poly(ethylene glycol) diacrylate at 20% w/v — photocrosslinked, low
+# viscosity, common in DLP printing. Includes here as the "stiff scaffold"
+# default alongside GelMA.
+#
+# Rheology source: PEGDA solutions are essentially Newtonian below ~30% w/v;
+# viscosity from supplier datasheets aggregated in extrusion bioprinting
+# reviews.
+
+name: pegda_20pct
+density_g_per_mL: 1.12
+rheology:
+  kind: newtonian
+  viscosity_pa_s: 0.05
+working_temperature_c: [20.0, 25.0]
+crosslinking: photo
+calibrated_against: "uncalibrated, literature default"
+notes: "Add 0.1-0.5% w/v LAP or Irgacure 2959 photoinitiator. Low viscosity — supports fine features but needs faster crosslinking to hold shape in bath."

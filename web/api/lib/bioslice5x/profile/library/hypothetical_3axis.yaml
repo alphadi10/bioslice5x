@@ -1,0 +1,24 @@
+# Hypothetical 3-axis bioprinter profile for Phase 2a development.
+#
+# This is the simplest possible kinematic — no rotaries — to validate the
+# pipeline shape (mesh → flat slice → straight-line paths → G-code) before
+# adding 5-axis complexity in Phase 2b. RRF dialect; assumes a Duet 2 board
+# driving a Cartesian XYZ stage with a single displacement-based syringe.
+
+name: hypothetical_3axis
+firmware: rrf
+
+build_volume:
+  x_mm: [-50.0, 50.0]
+  y_mm: [-50.0, 50.0]
+  z_mm: [0.0, 80.0]
+
+kinematic_chain:
+  kind: three_axis
+
+max_xy_feed_mm_per_min: 6000.0
+max_z_feed_mm_per_min: 500.0
+max_e_feed_uL_per_min: 50.0
+has_heated_bed: false
+
+notes: "Phase 2a target. Replace with open5x_prusa.yaml once Phase 2b lands."

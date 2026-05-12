@@ -1,0 +1,49 @@
+# Open5X Voron 0 chassis — B+C kinematic configuration.
+#
+# Letter mapping at the postprocessor:
+#   tilt joint  → letter B, rotates about world Y (Voron/Jubilee ISO convention).
+#   swivel joint → letter C, rotates about world Z (same as Prusa profile).
+#
+# This profile exists to demonstrate that switching G-code letters does NOT
+# require any kinematics code changes — only the YAML field below. A user
+# running a Voron-style chassis can take the same recipe + mesh that worked
+# on `open5x_prusa.yaml` and get correct G-code by swapping the profile.
+#
+# The physical tilt axis is genuinely different (Y vs X), which is reflected
+# in `rotates_about: y`. The kinematic transform respects this — a part
+# tilted 30° on a B+C machine ends up in a different machine-frame position
+# than a part tilted 30° on an A+C machine, even though both use the same
+# canonical `tilt_rad = 30°`.
+#
+# Build volume and tilt range from 3D_Model/Voron_0/DuetConfig/sys/config.g
+# (M208 X-58:115 Y-58:115 Z-20:85 B-110:110 C-1000000:1000000).
+
+name: open5x_voron
+firmware: rrf
+
+build_volume:
+  x_mm: [-58.0, 115.0]
+  y_mm: [-58.0, 115.0]
+  z_mm: [-20.0, 85.0]
+
+kinematic_chain:
+  kind: tilt_swivel
+  tilt:
+    rotates_about: y
+    letter: B
+    invert: false
+    range_deg: [-110.0, 110.0]
+    max_feed_deg_per_min: 61200.0
+  swivel:
+    rotates_about: z
+    letter: C
+    invert: false
+    range_deg: [-360000.0, 360000.0]
+    max_feed_deg_per_min: 61200.0
+
+max_xy_feed_mm_per_min: 18000.0
+max_z_feed_mm_per_min: 750.0
+max_e_feed_uL_per_min: 50.0
+has_heated_bed: false
+
+notes: "Voron 0 5-axis profile. ISO/Jubilee B+C letter convention; tilt physically about Y."

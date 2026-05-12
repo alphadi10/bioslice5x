@@ -1,0 +1,13 @@
+node_modules/
+.next/
+out/
+.vercel
+*.tsbuildinfo
+.DS_Store
+.env*.local
+
+# Vendored Python package — regenerated from src/bioslice5x via
+# `pnpm run sync:bioslice5x`. Checked-in so Vercel deploys are
+# self-contained without a build step that touches files outside web/.
+# Comment out the next line to drop the vendored copy from git.
+# api/lib/bioslice5x/

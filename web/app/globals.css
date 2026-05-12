@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-white text-neutral-900;
+  font-feature-settings: "tnum" on;
+}
+
+canvas {
+  display: block;
+  outline: none;
+}
+
+/* Tighter, less-rounded form controls — these read more like an
+   instrument panel than a marketing landing page. */
+input[type="number"],
+input[type="text"],
+select {
+  @apply border-neutral-300;
+}
+
+input[type="number"]:focus,
+input[type="text"]:focus,
+select:focus {
+  @apply outline-none ring-1 ring-neutral-900;
+}
+
+/* Range slider — neutral track, no gradient. */
+input[type="range"] {
+  @apply h-1 cursor-pointer appearance-none rounded-full bg-neutral-200;
+}
+input[type="range"]::-webkit-slider-thumb {
+  @apply h-3 w-3 appearance-none rounded-full bg-neutral-900;
+}

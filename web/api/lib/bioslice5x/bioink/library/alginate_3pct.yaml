@@ -1,0 +1,16 @@
+# Sodium alginate at 3% w/v — the workhorse extrusion bioink. Ionic
+# crosslinking via Ca²⁺ either in the bath or post-print.
+#
+# Rheology source: alginate shear-thinning literature (typical low-viscosity
+# extrusion bioink). K and n are mid-range for 3% w/v.
+
+name: alginate_3pct
+density_g_per_mL: 1.02
+rheology:
+  kind: power_law
+  consistency_k: 10.0
+  flow_index_n: 0.3
+working_temperature_c: [20.0, 25.0]
+crosslinking: ionic
+calibrated_against: "uncalibrated, literature default"
+notes: "Crosslink with CaCl2 solution or Ca²⁺-laden support bath. Cheap, well-characterized, low cell viability post-print without RGD modification."

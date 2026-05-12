@@ -1,0 +1,17 @@
+# GelMA (gelatin methacrylate) at 10% w/v — photocrosslinked, common in DLP
+# and extrusion bioprinting. Viscosity is strongly temperature dependent.
+#
+# Rheology source: MDPI/ACS GelMA rheology literature aggregated in
+# BIOPRINTING_REQUIREMENTS.md §3. K and n are typical-range values at print
+# temperature (20-25 C); higher temps thin the ink substantially.
+
+name: gelma_10pct
+density_g_per_mL: 1.05
+rheology:
+  kind: power_law
+  consistency_k: 20.0
+  flow_index_n: 0.3
+working_temperature_c: [20.0, 37.0]
+crosslinking: photo
+calibrated_against: "uncalibrated, literature default"
+notes: "Photocrosslink with 365-405 nm UV after deposition. Add LAP or Irgacure 2959 photoinitiator at 0.1-0.5% w/v."
