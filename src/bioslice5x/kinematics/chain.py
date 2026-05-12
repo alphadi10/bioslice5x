@@ -9,11 +9,15 @@ from __future__ import annotations
 
 from typing import Literal, Protocol, runtime_checkable
 
+import numpy as np
+import numpy.typing as npt
+
 from bioslice5x.kinematics.canonical import (
     AxisName,
     JointAngles,
     machine_to_part_xyz,
     part_to_machine_xyz,
+    part_to_machine_xyz_batch_same_joints,
 )
 from bioslice5x.profile.models import MachineProfile
 
@@ -35,6 +39,17 @@ class KinematicChain(Protocol):
         self, part_xyz: tuple[float, float, float], joints: JointAngles
     ) -> tuple[float, float, float]: ...
 
+    def part_to_machine_batch_same_joints(
+        self, part_xyz: npt.NDArray[np.float64], joints: JointAngles
+    ) -> npt.NDArray[np.float64]:
+        """Vectorized variant: N vertices, all using the same joint config.
+
+        Hot-path for conformal-perimeter generation, which transforms an
+        entire layer's vertex sequence in one BLAS call instead of a
+        Python loop over per-vertex rotation matrices.
+        """
+        ...
+
     def machine_to_part(
         self, machine_xyz: tuple[float, float, float], joints: JointAngles
     ) -> tuple[float, float, float]: ...
@@ -54,6 +69,14 @@ class ThreeAxisKinematics:
         self, part_xyz: tuple[float, float, float], joints: JointAngles
     ) -> tuple[float, float, float]:
         return part_xyz
+
+    def part_to_machine_batch_same_joints(
+        self, part_xyz: npt.NDArray[np.float64], joints: JointAngles
+    ) -> npt.NDArray[np.float64]:
+        # No-op chain: machine = part. Return the input unchanged
+        # (callers must not mutate the returned array; safer to copy on
+        # this rare path).
+        return np.ascontiguousarray(part_xyz, dtype=np.float64)
 
     def machine_to_part(
         self, machine_xyz: tuple[float, float, float], joints: JointAngles
@@ -85,6 +108,16 @@ class TiltSwivelKinematics:
     ) -> tuple[float, float, float]:
         return part_to_machine_xyz(
             part_xyz, joints, tilt_about=self.tilt_about, swivel_about=self.swivel_about
+        )
+
+    def part_to_machine_batch_same_joints(
+        self, part_xyz: npt.NDArray[np.float64], joints: JointAngles
+    ) -> npt.NDArray[np.float64]:
+        return part_to_machine_xyz_batch_same_joints(
+            part_xyz,
+            joints,
+            tilt_about=self.tilt_about,
+            swivel_about=self.swivel_about,
         )
 
     def machine_to_part(

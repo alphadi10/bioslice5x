@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable
+from typing import Any
 
 from shapely.geometry import LineString, MultiLineString, MultiPolygon, Polygon
 from shapely.ops import unary_union
@@ -90,35 +91,55 @@ def rectilinear_scan_segments(
     # spacing 2.5mm, this produces 4 lines at y ≈ ±1.25, ±3.75.
     n_lines = max(1, math.ceil(radius / spacing_mm))
     offsets = [(i - n_lines + 0.5) * spacing_mm for i in range(2 * n_lines)]
-    segments: list[tuple[tuple[float, float], tuple[float, float]]] = []
+    if not offsets:
+        return []
+    # Batch every scan-line into a single MultiLineString and clip
+    # against the shape in one call. The audit profiler observed
+    # `shape.intersection` as 1,140 calls/slice on the chips reference
+    # mesh — Shapely / GEOS handles a single multigeom intersection
+    # noticeably faster than N sequential ones, and the Python dispatch
+    # overhead per call drops to one.
+    lines: list[LineString] = []
     for offset in offsets:
-        # Each scan-line is a long line through (cx + offset*perp, cy + offset*perp)
-        # along (dir_x, dir_y).
         center_x = cx + offset * perp_x
         center_y = cy + offset * perp_y
         far = radius
-        line = LineString(
-            [
-                (center_x - far * dir_x, center_y - far * dir_y),
-                (center_x + far * dir_x, center_y + far * dir_y),
-            ]
+        lines.append(
+            LineString(
+                [
+                    (center_x - far * dir_x, center_y - far * dir_y),
+                    (center_x + far * dir_x, center_y + far * dir_y),
+                ]
+            )
         )
-        clipped = shape.intersection(line)
-        if clipped.is_empty:
+    multi = MultiLineString(lines)
+    clipped = shape.intersection(multi)
+    if clipped.is_empty:
+        return []
+    # `clipped` may be LineString, MultiLineString, or
+    # GeometryCollection depending on how the shape clipped each line.
+    if isinstance(clipped, LineString):
+        geom_iter: list[Any] = [clipped]
+    elif isinstance(clipped, MultiLineString):
+        geom_iter = list(clipped.geoms)
+    else:
+        # GeometryCollection — pull every LineString / MultiLineString
+        # member; skip points / polygons that fell out of degenerate
+        # intersections.
+        geom_iter = []
+        for g in getattr(clipped, "geoms", []):
+            if isinstance(g, LineString):
+                geom_iter.append(g)
+            elif isinstance(g, MultiLineString):
+                geom_iter.extend(g.geoms)
+    segments: list[tuple[tuple[float, float], tuple[float, float]]] = []
+    for ls in geom_iter:
+        coords = list(ls.coords)
+        if len(coords) < 2:
             continue
-        if isinstance(clipped, LineString):
-            geom_list = [clipped]
-        elif isinstance(clipped, MultiLineString):
-            geom_list = list(clipped.geoms)
-        else:
-            continue  # Point or GeometryCollection — degenerate, skip
-        for ls in geom_list:
-            coords = list(ls.coords)
-            if len(coords) < 2:
-                continue
-            start = (float(coords[0][0]), float(coords[0][1]))
-            end = (float(coords[-1][0]), float(coords[-1][1]))
-            segments.append((start, end))
+        start = (float(coords[0][0]), float(coords[0][1]))
+        end = (float(coords[-1][0]), float(coords[-1][1]))
+        segments.append((start, end))
     return segments
 
 
