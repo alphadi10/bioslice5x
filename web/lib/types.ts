@@ -84,6 +84,10 @@ export interface Syringe {
   barrel_inner_diameter_mm: number;
   total_volume_uL: number;
   temperature_setpoint_c: number | null;
+  /** Volumetric retract before each travel + at end-of-print.
+   * 0 disables retract entirely. Defaults to 0.5 µL — sensible for
+   * 22-25G needles on 1 mL slip-tip syringes. Tune per syringe + bioink. */
+  retract_volume_uL: number;
 }
 
 export type SlicingMode =
@@ -109,6 +113,14 @@ export interface SlicingParams {
   infill_density: number;
   infill_pattern: "rectilinear";
   infill_angle_deg: number;
+  /** Tilt-magnitude threshold for the singularity smoother. Vertices
+   * whose tilt sits inside this band get their swivel linearly
+   * interpolated across contiguous in-band runs. Recipe-controlled so
+   * lab calibration can tune. Default 2°. */
+  singularity_threshold_deg: number;
+  /** Safe-park clearance for end-of-print: the EOF sequence raises Z by
+   * this many mm before homing rotaries, so the needle clears the bath. */
+  safe_park_clearance_mm: number;
 }
 
 export type PrintOrientation =
@@ -153,6 +165,14 @@ export interface CellViabilityError {
   remediation: string;
 }
 
+export interface ApiErrorPayload {
+  message: string;
+  type?: string;
+  detail?: string;
+  /** Optional pydantic field path for validation errors. */
+  field?: string;
+}
+
 export interface ApiError {
-  error: { message: string; type?: string } | CellViabilityError;
+  error: ApiErrorPayload | CellViabilityError;
 }

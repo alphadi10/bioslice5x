@@ -66,13 +66,19 @@ function mulMatVec(m: Mat3, v: readonly [number, number, number]): [number, numb
  *
  * Inputs:
  *   machine: machine-frame point in mm, from the G1's X/Y/Z tokens
- *   aDeg, cDeg: rotary tokens as emitted (already include the
- *     profile's invert flag). null when the chain doesn't use that axis.
+ *   aDeg, bDeg, cDeg: the three possible rotary tokens, as emitted by
+ *     the postprocessor (already include the profile's invert flag).
+ *     null when the move didn't carry that letter. The chain's
+ *     `tiltLetter` / `swivelLetter` selects which one to consume for
+ *     each joint — so a Voron profile (tilt=B, swivel=C) and a Prusa
+ *     profile (tilt=A, swivel=C) both work without the caller having
+ *     to know the letter mapping.
  *   chain: kinematic chain config from the G-code META block.
  */
 export function machineToPart(
   machine: readonly [number, number, number],
   aDeg: number | null,
+  bDeg: number | null,
   cDeg: number | null,
   chain: KinematicChainInfo
 ): [number, number, number] {
@@ -81,17 +87,26 @@ export function machineToPart(
     return [machine[0], machine[1], machine[2]];
   }
 
+  const letterValue = (letter: string | null): number | null => {
+    if (letter === "A") return aDeg;
+    if (letter === "B") return bDeg;
+    if (letter === "C") return cDeg;
+    return null;
+  };
+
   // Re-derive canonical joint angles (the slicer's internal radians)
   // from the emitted G-code letters. The postprocessor applied
   // `deg = canonical_deg * (invert ? -1 : 1)`, so we invert that.
   const deg2rad = (d: number) => (d * Math.PI) / 180;
+  const tiltDeg = letterValue(chain.tiltLetter);
+  const swivelDeg = letterValue(chain.swivelLetter);
   const tiltRad =
-    aDeg !== null && chain.tiltAxis !== null
-      ? deg2rad(chain.tiltInvert ? -aDeg : aDeg)
+    tiltDeg !== null && chain.tiltAxis !== null
+      ? deg2rad(chain.tiltInvert ? -tiltDeg : tiltDeg)
       : 0;
   const swivelRad =
-    cDeg !== null && chain.swivelAxis !== null
-      ? deg2rad(chain.swivelInvert ? -cDeg : cDeg)
+    swivelDeg !== null && chain.swivelAxis !== null
+      ? deg2rad(chain.swivelInvert ? -swivelDeg : swivelDeg)
       : 0;
 
   // part = R_swivel⁻¹ @ R_tilt⁻¹ @ machine.  Invert by negating angle.

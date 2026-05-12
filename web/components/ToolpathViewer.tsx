@@ -26,6 +26,9 @@ import {
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
+import { Line2 } from "three/examples/jsm/lines/Line2.js";
+import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import {
   type Colormap,
   layerColor,
@@ -45,7 +48,9 @@ export interface BuildVolume {
 export interface ToolpathViewerProps {
   moves: ParsedMove[];
   layerIndices: Int32Array;
-  /** Show extrusion moves with layer_index <= this value. */
+  /** Show extrusion moves with `clipRangeMin <= layer_index <= clipRangeMax`.
+   * Use the same value for both bounds to inspect a single layer. */
+  clipRangeMin: number;
   clipRangeMax: number;
   colorMode: ColorMode;
   /** Cell-shear threshold in Pa. When set + colorMode=shear, clamps colormap. */
@@ -59,6 +64,12 @@ export interface ToolpathViewerProps {
    * XYZ + A + C — without it, 5-axis prints render as degenerate
    * vertical columns. */
   chain: KinematicChainInfo;
+  /** Called with the active scalar range whenever the geometry rebuilds,
+   * so the parent page can render a legend overlay outside the canvas.
+   * Null when colorMode === "layer" (no continuous scalar). */
+  onScalarRange?: (
+    range: { lo: number; hi: number; unit: string; label: string } | null
+  ) => void;
   className?: string;
 }
 
@@ -69,6 +80,7 @@ function colormapFor(mode: ColorMode): Colormap {
 export function ToolpathViewer({
   moves,
   layerIndices,
+  clipRangeMin,
   clipRangeMax,
   colorMode,
   cellShearThresholdPa,
@@ -76,6 +88,7 @@ export function ToolpathViewer({
   meshOpacity = 0.15,
   buildVolume,
   chain,
+  onScalarRange,
   className,
 }: ToolpathViewerProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -84,8 +97,10 @@ export function ToolpathViewer({
     camera: THREE.PerspectiveCamera;
     renderer: THREE.WebGLRenderer;
     controls: OrbitControls;
-    extrusion: THREE.LineSegments | null;
-    travels: THREE.LineSegments | null;
+    extrusion: Line2 | null;
+    extrusionMaterial: LineMaterial | null;
+    travels: Line2 | null;
+    travelMaterial: LineMaterial | null;
     meshOverlay: THREE.Mesh | null;
     buildVolume: THREE.LineSegments | null;
     arrows: THREE.Group | null;
@@ -93,18 +108,33 @@ export function ToolpathViewer({
   } | null>(null);
 
   // Pre-build line-segment geometries (per render of moves/clipRange).
-  const { extrusionGeometry, travelGeometry, sceneCenter, sceneRadius } = useMemo(
+  const { extrusionGeometry, travelGeometry, sceneCenter, sceneRadius, scalarRange } = useMemo(
     () =>
       buildLineGeometries({
         moves,
         layerIndices,
+        clipRangeMin,
         clipRangeMax,
         colorMode,
         cellShearThresholdPa,
         chain,
       }),
-    [moves, layerIndices, clipRangeMax, colorMode, cellShearThresholdPa, chain]
+    [
+      moves,
+      layerIndices,
+      clipRangeMin,
+      clipRangeMax,
+      colorMode,
+      cellShearThresholdPa,
+      chain,
+    ]
   );
+
+  // Surface the active scalar range to the parent so it can render an
+  // overlay legend. Fires whenever the colour-coded geometry rebuilds.
+  useEffect(() => {
+    onScalarRange?.(scalarRange);
+  }, [scalarRange, onScalarRange]);
 
   // ---- Scene setup: runs once. ----
   useEffect(() => {
@@ -147,7 +177,9 @@ export function ToolpathViewer({
       renderer,
       controls,
       extrusion: null,
+      extrusionMaterial: null,
       travels: null,
+      travelMaterial: null,
       meshOverlay: null,
       buildVolume: null,
       arrows: null,
@@ -169,6 +201,13 @@ export function ToolpathViewer({
       camera.aspect = mount.clientWidth / Math.max(1, mount.clientHeight);
       camera.updateProjectionMatrix();
       renderer.setSize(mount.clientWidth, mount.clientHeight);
+      // LineMaterial uses screen-space resolution to compute line width;
+      // refresh it whenever the canvas resizes so 1.5px stays 1.5px.
+      const ref = sceneRef.current;
+      if (ref) {
+        ref.extrusionMaterial?.resolution.set(mount.clientWidth, mount.clientHeight);
+        ref.travelMaterial?.resolution.set(mount.clientWidth, mount.clientHeight);
+      }
     };
     window.addEventListener("resize", onResize);
 
@@ -192,52 +231,81 @@ export function ToolpathViewer({
   useEffect(() => {
     const ref = sceneRef.current;
     if (!ref) return;
-    const { scene } = ref;
+    const { scene, renderer } = ref;
+    const size = new THREE.Vector2();
+    renderer.getSize(size);
+    const screenRes: [number, number] = [
+      size.x > 0 ? size.x : 1,
+      size.y > 0 ? size.y : 1,
+    ];
 
-    // Replace extrusion.
+    // Replace extrusion. Line2 + LineMaterial gives ribbons whose width
+    // scales with screen pixels — `LineBasicMaterial`'s `linewidth` is
+    // ignored on every modern WebGL platform (spec mandates 1px), which
+    // is the single biggest "feels like an intern wireframe" bug
+    // surfaced by the audit. Line2 fixes it for both extrusion and
+    // travels.
     if (ref.extrusion) {
       scene.remove(ref.extrusion);
       ref.extrusion.geometry.dispose();
-      (ref.extrusion.material as THREE.Material).dispose();
+      ref.extrusionMaterial?.dispose();
       ref.extrusion = null;
+      ref.extrusionMaterial = null;
     }
     if (extrusionGeometry.positions.length > 0) {
-      const geom = new THREE.BufferGeometry();
-      geom.setAttribute(
-        "position",
-        new THREE.Float32BufferAttribute(extrusionGeometry.positions, 3)
-      );
-      geom.setAttribute(
-        "color",
-        new THREE.Float32BufferAttribute(extrusionGeometry.colors, 3)
-      );
-      const mat = new THREE.LineBasicMaterial({ vertexColors: true, linewidth: 2 });
-      const lines = new THREE.LineSegments(geom, mat);
-      scene.add(lines);
-      ref.extrusion = lines;
+      const geom = new LineGeometry();
+      // `LineGeometry.setPositions` expects a flat float array of
+      // *per-segment-pair* points (start+end alternating). Our
+      // extrusion positions are already in that shape — every 6 floats
+      // is one segment.
+      geom.setPositions(Array.from(extrusionGeometry.positions));
+      geom.setColors(Array.from(extrusionGeometry.colors));
+      const mat = new LineMaterial({
+        vertexColors: true,
+        linewidth: 2.4,
+        worldUnits: false,
+        transparent: false,
+        depthTest: true,
+        // `Line2` is a segmented "ribbon" — we don't want any miter / cap
+        // on the line endpoints because the geometry is a sparse list of
+        // independent segments, not a continuous polyline.
+        alphaToCoverage: true,
+      });
+      mat.resolution.set(screenRes[0], screenRes[1]);
+      const line = new Line2(geom, mat);
+      line.computeLineDistances();
+      line.scale.set(1, 1, 1);
+      scene.add(line);
+      ref.extrusion = line;
+      ref.extrusionMaterial = mat;
     }
 
-    // Replace travels.
+    // Replace travels. Thinner + semi-transparent so they read as a
+    // visual sidebar, not a competing toolpath.
     if (ref.travels) {
       scene.remove(ref.travels);
       ref.travels.geometry.dispose();
-      (ref.travels.material as THREE.Material).dispose();
+      ref.travelMaterial?.dispose();
       ref.travels = null;
+      ref.travelMaterial = null;
     }
     if (travelGeometry.positions.length > 0) {
-      const geom = new THREE.BufferGeometry();
-      geom.setAttribute(
-        "position",
-        new THREE.Float32BufferAttribute(travelGeometry.positions, 3)
-      );
-      const mat = new THREE.LineBasicMaterial({
+      const geom = new LineGeometry();
+      geom.setPositions(Array.from(travelGeometry.positions));
+      const mat = new LineMaterial({
         color: 0xb0b8c4,
+        linewidth: 1.0,
         transparent: true,
-        opacity: 0.5,
+        opacity: 0.45,
+        worldUnits: false,
+        depthTest: true,
       });
-      const lines = new THREE.LineSegments(geom, mat);
-      scene.add(lines);
-      ref.travels = lines;
+      mat.resolution.set(screenRes[0], screenRes[1]);
+      const line = new Line2(geom, mat);
+      line.computeLineDistances();
+      scene.add(line);
+      ref.travels = line;
+      ref.travelMaterial = mat;
     }
 
     // First-time framing: center camera + controls on the toolpath center.
@@ -351,11 +419,15 @@ interface GeometryBundle {
   travelGeometry: LineGeometryArrays;
   sceneCenter: [number, number, number] | null;
   sceneRadius: number;
+  /** The active color-mode's resolved scalar range; null when there's
+   * no extrusion to colour. Surfaced to the legend overlay. */
+  scalarRange: { lo: number; hi: number; unit: string; label: string } | null;
 }
 
 interface BuildArgs {
   moves: ParsedMove[];
   layerIndices: Int32Array;
+  clipRangeMin: number;
   clipRangeMax: number;
   colorMode: ColorMode;
   cellShearThresholdPa: number | null;
@@ -365,6 +437,7 @@ interface BuildArgs {
 function buildLineGeometries({
   moves,
   layerIndices,
+  clipRangeMin,
   clipRangeMax,
   colorMode,
   cellShearThresholdPa,
@@ -376,6 +449,7 @@ function buildLineGeometries({
       travelGeometry: { positions: new Float32Array(), colors: new Float32Array() },
       sceneCenter: null,
       sceneRadius: 0,
+      scalarRange: null,
     };
   }
 
@@ -390,6 +464,7 @@ function buildLineGeometries({
     partPts[i] = machineToPart(
       moves[i].endXyz,
       moves[i].aDeg,
+      moves[i].bDeg,
       moves[i].cDeg,
       chain
     );
@@ -447,7 +522,7 @@ function buildLineGeometries({
       travelPositions.push(cur[0], cur[1], cur[2], next[0], next[1], next[2]);
     } else {
       const layer = layerIndices[extIdx] ?? 0;
-      if (layer <= clipRangeMax) {
+      if (layer >= clipRangeMin && layer <= clipRangeMax) {
         let r: number;
         let g: number;
         let b: number;
@@ -492,6 +567,13 @@ function buildLineGeometries({
   ];
   const sceneRadius = Math.max(1, Math.max(maxX - minX, maxY - minY, maxZ - minZ) / 2 + 2);
 
+  const scalarRange =
+    colorMode === "layer"
+      ? null
+      : colorMode === "z"
+        ? { lo: scalarLo, hi: scalarHi, unit: "mm", label: "Z height" }
+        : { lo: scalarLo, hi: scalarHi, unit: "Pa", label: "Wall shear" };
+
   return {
     extrusionGeometry: {
       positions: new Float32Array(extPositions),
@@ -503,5 +585,6 @@ function buildLineGeometries({
     },
     sceneCenter,
     sceneRadius,
+    scalarRange,
   };
 }

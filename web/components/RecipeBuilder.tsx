@@ -130,71 +130,153 @@ function SlicingParamsEditor({
     onChange({ ...recipe, slicing: { ...s, ...p } });
   }
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-      <NumberField
-        label="Layer height (mm)"
-        value={s.layer_height_mm}
-        step={0.05}
-        min={0.05}
-        onChange={(v) => patch({ layer_height_mm: v })}
-      />
-      <NumberField
-        label="Line width (mm)"
-        value={s.line_width_mm}
-        step={0.05}
-        min={0.05}
-        onChange={(v) => patch({ line_width_mm: v })}
-      />
-      <NumberField
-        label="Print feed (mm/min)"
-        value={s.print_speed_mm_per_min}
-        step={50}
-        min={1}
-        onChange={(v) => patch({ print_speed_mm_per_min: v })}
-      />
-      <NumberField
-        label="Travel feed (mm/min)"
-        value={s.travel_speed_mm_per_min}
-        step={100}
-        min={1}
-        onChange={(v) => patch({ travel_speed_mm_per_min: v })}
-      />
-      <NumberField
-        label="Infill density"
-        value={s.infill_density}
-        step={0.05}
-        min={0}
-        max={1}
-        onChange={(v) => patch({ infill_density: v })}
-      />
-      <SelectField
-        label="Slicing mode"
-        value={s.mode.kind}
-        onChange={(v) =>
-          patch({
-            mode:
-              v === "flat"
-                ? { kind: "flat" }
-                : {
-                    kind: "wrap_around_axis",
-                    wrap_axis: "z",
-                    cylinder_radius_mm: 5,
-                    arc_start_deg: -180,
-                    arc_end_deg: 180,
-                    conformal_arc_sampling_mm: null,
-                    allow_tilt_arc_split: false,
-                    arc_split_count: 1,
-                  },
-          })
-        }
-        options={[
-          { value: "flat", label: "Flat (planar layers)" },
-          {
-            value: "wrap_around_axis",
-            label: "Wrap around axis (conformal)",
-          },
-        ]}
-      />
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <NumberField
+          label="Layer height (mm)"
+          value={s.layer_height_mm}
+          step={0.05}
+          min={0.05}
+          onChange={(v) => patch({ layer_height_mm: v })}
+        />
+        <NumberField
+          label="Line width (mm)"
+          value={s.line_width_mm}
+          step={0.05}
+          min={0.05}
+          onChange={(v) => patch({ line_width_mm: v })}
+        />
+        <NumberField
+          label="Print feed (mm/min)"
+          value={s.print_speed_mm_per_min}
+          step={50}
+          min={1}
+          onChange={(v) => patch({ print_speed_mm_per_min: v })}
+        />
+        <NumberField
+          label="Travel feed (mm/min)"
+          value={s.travel_speed_mm_per_min}
+          step={100}
+          min={1}
+          onChange={(v) => patch({ travel_speed_mm_per_min: v })}
+        />
+        <NumberField
+          label="Infill density"
+          value={s.infill_density}
+          step={0.05}
+          min={0}
+          max={1}
+          onChange={(v) => patch({ infill_density: v })}
+        />
+        <SelectField
+          label="Slicing mode"
+          value={s.mode.kind}
+          onChange={(v) =>
+            patch({
+              mode:
+                v === "flat"
+                  ? { kind: "flat" }
+                  : {
+                      kind: "wrap_around_axis",
+                      wrap_axis: "z",
+                      cylinder_radius_mm: 5,
+                      arc_start_deg: -180,
+                      arc_end_deg: 180,
+                      conformal_arc_sampling_mm: null,
+                      allow_tilt_arc_split: false,
+                      arc_split_count: 1,
+                    },
+            })
+          }
+          options={[
+            { value: "flat", label: "Flat (planar layers)" },
+            {
+              value: "wrap_around_axis",
+              label: "Wrap around axis (conformal)",
+            },
+          ]}
+        />
+      </div>
+      {s.mode.kind === "wrap_around_axis" && (
+        <WrapAxisEditor
+          mode={s.mode}
+          onChange={(m) => patch({ mode: m })}
+        />
+      )}
+      <details className="text-xs">
+        <summary className="cursor-pointer text-neutral-600 hover:text-neutral-900">
+          Advanced safety parameters
+        </summary>
+        <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <NumberField
+            label="Singularity threshold (°)"
+            value={s.singularity_threshold_deg}
+            step={0.5}
+            min={0.1}
+            max={15}
+            onChange={(v) => patch({ singularity_threshold_deg: v })}
+          />
+          <NumberField
+            label="Safe-park clearance (mm)"
+            value={s.safe_park_clearance_mm}
+            step={1}
+            min={0}
+            onChange={(v) => patch({ safe_park_clearance_mm: v })}
+          />
+        </div>
+      </details>
+    </div>
+  );
+}
+
+function WrapAxisEditor({
+  mode,
+  onChange,
+}: {
+  mode: Extract<Recipe["slicing"]["mode"], { kind: "wrap_around_axis" }>;
+  onChange: (m: Recipe["slicing"]["mode"]) => void;
+}) {
+  function patch(p: Partial<typeof mode>) {
+    onChange({ ...mode, ...p });
+  }
+  return (
+    <div className="space-y-2 rounded-sm border border-neutral-200 bg-neutral-50 p-3">
+      <div className="text-xs font-medium tracking-tight text-neutral-700">
+        Wrap-around-axis parameters
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <SelectField
+          label="Wrap axis"
+          value={mode.wrap_axis}
+          onChange={(v) =>
+            patch({ wrap_axis: v as "x" | "y" | "z" })
+          }
+          options={[
+            { value: "x", label: "X (Prusa tilt axis)" },
+            { value: "y", label: "Y (Voron tilt axis)" },
+            { value: "z", label: "Z (swivel axis — unbounded)" },
+          ]}
+        />
+        <NumberField
+          label="Cylinder radius (mm)"
+          value={mode.cylinder_radius_mm}
+          step={0.5}
+          min={0.1}
+          onChange={(v) => patch({ cylinder_radius_mm: v })}
+        />
+        <NumberField
+          label="Arc start (°)"
+          value={mode.arc_start_deg}
+          step={5}
+          onChange={(v) => patch({ arc_start_deg: v })}
+        />
+        <NumberField
+          label="Arc end (°)"
+          value={mode.arc_end_deg}
+          step={5}
+          onChange={(v) => patch({ arc_end_deg: v })}
+        />
+      </div>
     </div>
   );
 }
@@ -229,27 +311,46 @@ function SyringeEditor({
     depositionHint = `line width is ${ratio.toFixed(1)}× needle ID — adjacent passes may overlap`;
   }
 
+  const activeBioink = bioinks.find((b) => b.name === syringe.bioink);
+  const activeCell = cells.find((c) => c.name === syringe.cell_payload);
+
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <SelectField
-          label="Bioink"
-          value={syringe.bioink}
-          onChange={(v) => onChange({ bioink: v })}
-          options={bioinks.map((b) => ({
-            value: b.name,
-            label: b.calibrated ? b.name : `${b.name} (uncalibrated)`,
-          }))}
-        />
-        <SelectField
-          label="Cell payload"
-          value={syringe.cell_payload}
-          onChange={(v) => onChange({ cell_payload: v })}
-          options={cells.map((c) => ({
-            value: c.name,
-            label: `${c.name} (${c.max_wall_shear_stress_pa.toFixed(0)} Pa max)`,
-          }))}
-        />
+        <div className="space-y-1">
+          <SelectField
+            label="Bioink"
+            value={syringe.bioink}
+            onChange={(v) => onChange({ bioink: v })}
+            options={bioinks.map((b) => ({
+              value: b.name,
+              label: b.calibrated ? b.name : `${b.name} (uncalibrated)`,
+            }))}
+          />
+          {activeBioink && (
+            <CalibrationLine
+              calibrated={activeBioink.calibrated}
+              calibratedAgainst={activeBioink.calibrated_against}
+            />
+          )}
+        </div>
+        <div className="space-y-1">
+          <SelectField
+            label="Cell payload"
+            value={syringe.cell_payload}
+            onChange={(v) => onChange({ cell_payload: v })}
+            options={cells.map((c) => ({
+              value: c.name,
+              label: `${c.name} (${c.max_wall_shear_stress_pa.toFixed(0)} Pa max)`,
+            }))}
+          />
+          {activeCell && (
+            <CalibrationLine
+              calibrated={activeCell.calibrated}
+              calibratedAgainst={activeCell.calibrated_against}
+            />
+          )}
+        </div>
         <SelectField
           label="Needle"
           value={String(syringe.needle.inner_diameter_mm)}
@@ -277,7 +378,67 @@ function SyringeEditor({
       {depositionHint && (
         <p className="text-xs text-amber-700">{depositionHint}</p>
       )}
+      <details className="text-xs">
+        <summary className="cursor-pointer text-neutral-600 hover:text-neutral-900">
+          Syringe physical + pump parameters
+        </summary>
+        <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <NumberField
+            label="Retract volume (µL)"
+            value={syringe.retract_volume_uL}
+            step={0.1}
+            min={0}
+            onChange={(v) => onChange({ retract_volume_uL: v })}
+          />
+          <NumberField
+            label="Purge volume (µL)"
+            value={syringe.purge_volume_uL}
+            step={1}
+            min={0}
+            onChange={(v) => onChange({ purge_volume_uL: v })}
+          />
+          <NumberField
+            label="Barrel ID (mm)"
+            value={syringe.barrel_inner_diameter_mm}
+            step={0.05}
+            min={0.1}
+            onChange={(v) => onChange({ barrel_inner_diameter_mm: v })}
+          />
+          <NumberField
+            label="Barrel total volume (µL)"
+            value={syringe.total_volume_uL}
+            step={100}
+            min={1}
+            onChange={(v) => onChange({ total_volume_uL: v })}
+          />
+        </div>
+        <p className="mt-2 text-[11px] text-neutral-500">
+          Retract volume is volumetric (µL) — the emitter converts to plunger
+          displacement via the barrel cross-section. 0 disables retract.
+        </p>
+      </details>
     </div>
+  );
+}
+
+function CalibrationLine({
+  calibrated,
+  calibratedAgainst,
+}: {
+  calibrated: boolean;
+  calibratedAgainst: string;
+}) {
+  const dotClass = calibrated ? "bg-emerald-500" : "bg-red-500";
+  const label = calibrated ? "calibrated" : "uncalibrated";
+  return (
+    <p className="flex items-center gap-1 text-[11px] text-neutral-500">
+      <span
+        aria-hidden="true"
+        className={`inline-block h-1.5 w-1.5 rounded-full ${dotClass}`}
+      />
+      <span className="font-medium text-neutral-600">{label}:</span>
+      <span className="truncate">{calibratedAgainst || "(no provenance)"}</span>
+    </p>
   );
 }
 

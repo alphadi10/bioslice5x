@@ -39,6 +39,7 @@ export const DEFAULT_RECIPE: Recipe = {
       barrel_inner_diameter_mm: 4.65,
       total_volume_uL: 1000,
       temperature_setpoint_c: null,
+      retract_volume_uL: 0.5,
     },
   ],
   slicing: {
@@ -51,6 +52,8 @@ export const DEFAULT_RECIPE: Recipe = {
     infill_density: 0.2,
     infill_pattern: "rectilinear",
     infill_angle_deg: 0,
+    singularity_threshold_deg: 2,
+    safe_park_clearance_mm: 10,
   },
   print_orientation: { kind: "fixed", tilt_deg: 0, swivel_deg: 0 },
   bath: null,

@@ -7,8 +7,9 @@
  * viewer right), footer with minimal citation. No marketing copy.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  SliceApiError,
   SliceCellViabilityError,
   fetchBioinks,
   fetchCells,
@@ -17,6 +18,13 @@ import {
 } from "@/lib/api";
 import { DEFAULT_RECIPE } from "@/lib/defaults";
 import { computeLayerIndices, parseGcode } from "@/lib/gcode-parser";
+import {
+  RecipeParseError,
+  downloadRecipeYaml,
+  importRecipeYaml,
+  loadStoredRecipe,
+  saveStoredRecipe,
+} from "@/lib/recipe-io";
 import type {
   BioinkRecord,
   CellPayloadRecord,
@@ -26,6 +34,9 @@ import type {
 } from "@/lib/types";
 import { RecipeBuilder } from "@/components/RecipeBuilder";
 import { ToolpathViewer, type ColorMode } from "@/components/ToolpathViewer";
+import { ColorBarLegend, type LegendRange } from "@/components/ColorBarLegend";
+
+const MAX_MESH_BYTES = 50 * 1024 * 1024;
 
 const REPO_URL = "https://github.com/alphadi10/bioslice5x";
 const DOCS_URL = "https://github.com/alphadi10/bioslice5x#readme";
@@ -49,14 +60,33 @@ export default function HomePage() {
   const [mesh, setMesh] = useState<LoadedMesh | null>(null);
 
   const [slicing, setSlicing] = useState(false);
-  const [sliceError, setSliceError] = useState<string | null>(null);
+  const [sliceError, setSliceError] = useState<SliceApiError | string | null>(
+    null
+  );
   const [viabilityError, setViabilityError] =
     useState<SliceCellViabilityError | null>(null);
   const [sliceResult, setSliceResult] = useState<SliceResponse | null>(null);
 
   const [colorMode, setColorMode] = useState<ColorMode>("layer");
   const [showMeshOverlay, setShowMeshOverlay] = useState<boolean>(true);
-  const [clipFraction, setClipFraction] = useState<number>(1);
+  // Dual-thumb layer scrubber: inspect a [min, max] band of the print.
+  const [clipMinFraction, setClipMinFraction] = useState<number>(0);
+  const [clipMaxFraction, setClipMaxFraction] = useState<number>(1);
+  const [legendRange, setLegendRange] = useState<LegendRange | null>(null);
+  const [recipeIoMessage, setRecipeIoMessage] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Rehydrate the user's last-edited recipe on mount. Falls back to the
+  // bundled default if storage is empty / malformed / private-mode.
+  useEffect(() => {
+    const stored = loadStoredRecipe();
+    if (stored) setRecipe(stored);
+  }, []);
+
+  // Persist recipe edits opportunistically; safe to call on every render.
+  useEffect(() => {
+    saveStoredRecipe(recipe);
+  }, [recipe]);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,7 +118,10 @@ export default function HomePage() {
 
   const maxLayer =
     layerIndices.length > 0 ? layerIndices[layerIndices.length - 1] : 0;
-  const clipRangeMax = Math.round(clipFraction * maxLayer);
+  const clipRangeMin = Math.round(clipMinFraction * maxLayer);
+  const clipRangeMaxRaw = Math.round(clipMaxFraction * maxLayer);
+  // Guard against the user dragging max below min by enforcing min<=max.
+  const clipRangeMax = Math.max(clipRangeMin, clipRangeMaxRaw);
 
   const buildVolume = useMemo(() => {
     const p = profiles.find((pp) => pp.name === profile);
@@ -108,6 +141,15 @@ export default function HomePage() {
   }, [colorMode, sliceResult]);
 
   async function onFilePicked(file: File) {
+    if (file.size > MAX_MESH_BYTES) {
+      setSliceError(
+        `Mesh too large: ${(file.size / 1024 / 1024).toFixed(1)} MB exceeds the ` +
+          `50 MB API limit. Decimate the mesh (Meshmixer / Blender) or split ` +
+          `into smaller regions before uploading.`
+      );
+      return;
+    }
+    setSliceError(null);
     const fmt: "stl" | "obj" = file.name.toLowerCase().endsWith(".obj")
       ? "obj"
       : "stl";
@@ -131,16 +173,42 @@ export default function HomePage() {
         recipe,
       });
       setSliceResult(res);
-      setClipFraction(1);
+      setClipMinFraction(0);
+      setClipMaxFraction(1);
     } catch (e) {
       if (e instanceof SliceCellViabilityError) {
         setViabilityError(e);
+      } else if (e instanceof SliceApiError) {
+        setSliceError(e);
       } else {
         setSliceError(e instanceof Error ? e.message : String(e));
       }
     } finally {
       setSlicing(false);
     }
+  }
+
+  const onImportRecipe = useCallback(async (file: File) => {
+    setRecipeIoMessage(null);
+    try {
+      const text = await file.text();
+      const parsed = importRecipeYaml(text);
+      setRecipe(parsed);
+      setRecipeIoMessage(`Loaded recipe "${parsed.name}" from ${file.name}.`);
+    } catch (exc) {
+      const msg =
+        exc instanceof RecipeParseError
+          ? exc.message
+          : exc instanceof Error
+            ? exc.message
+            : String(exc);
+      setRecipeIoMessage(`Import failed — ${msg}`);
+    }
+  }, []);
+
+  function onExportRecipe() {
+    downloadRecipeYaml(recipe);
+    setRecipeIoMessage(`Exported ${recipe.name || "recipe"}.yaml.`);
   }
 
   function onDownloadGcode() {
@@ -213,6 +281,43 @@ export default function HomePage() {
             onProfile={setProfile}
           />
 
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <div className="font-medium tracking-tight text-neutral-700">
+              Recipe
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => importInputRef.current?.click()}
+                className="rounded-sm border border-neutral-300 px-2 py-0.5 text-[11px] hover:bg-neutral-100"
+              >
+                Import YAML
+              </button>
+              <button
+                type="button"
+                onClick={onExportRecipe}
+                className="rounded-sm border border-neutral-300 px-2 py-0.5 text-[11px] hover:bg-neutral-100"
+              >
+                Export YAML
+              </button>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".yaml,.yml,application/x-yaml,text/yaml"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void onImportRecipe(f);
+                  // Reset so the same file can be re-picked.
+                  e.target.value = "";
+                }}
+              />
+            </div>
+          </div>
+          {recipeIoMessage && (
+            <p className="text-[11px] text-neutral-600">{recipeIoMessage}</p>
+          )}
+
           <RecipeBuilder
             recipe={recipe}
             bioinks={bioinks}
@@ -238,43 +343,51 @@ export default function HomePage() {
                 Download G-code
               </button>
             )}
-            {sliceError && (
-              <div className="border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-                {sliceError}
-              </div>
-            )}
+            {sliceError && <SliceErrorNotice err={sliceError} />}
             {viabilityError && (
               <CellViabilityNotice err={viabilityError} />
             )}
           </div>
         </section>
 
-        <section className="flex min-h-[600px] flex-1 flex-col gap-3">
+        <section className="flex min-h-[60vh] flex-1 flex-col gap-3 lg:min-h-[600px]">
           <ViewerControls
             sliceResult={sliceResult}
             colorMode={colorMode}
             setColorMode={setColorMode}
             showMeshOverlay={showMeshOverlay}
             setShowMeshOverlay={setShowMeshOverlay}
-            clipFraction={clipFraction}
-            setClipFraction={setClipFraction}
+            clipMinFraction={clipMinFraction}
+            setClipMinFraction={setClipMinFraction}
+            clipMaxFraction={clipMaxFraction}
+            setClipMaxFraction={setClipMaxFraction}
             maxLayer={maxLayer}
+            clipRangeMin={clipRangeMin}
             clipRangeMax={clipRangeMax}
           />
 
           <div className="relative flex-1 border border-neutral-200">
             {parsed ? (
-              <ToolpathViewer
-                moves={parsed.moves}
-                layerIndices={layerIndices}
-                clipRangeMax={clipRangeMax}
-                colorMode={colorMode}
-                cellShearThresholdPa={cellShearThresholdPa}
-                meshSTL={showMeshOverlay && mesh ? mesh.bytes : null}
-                buildVolume={buildVolume}
-                chain={parsed.chain}
-                className="absolute inset-0"
-              />
+              <>
+                <ToolpathViewer
+                  moves={parsed.moves}
+                  layerIndices={layerIndices}
+                  clipRangeMin={clipRangeMin}
+                  clipRangeMax={clipRangeMax}
+                  colorMode={colorMode}
+                  cellShearThresholdPa={cellShearThresholdPa}
+                  meshSTL={showMeshOverlay && mesh ? mesh.bytes : null}
+                  buildVolume={buildVolume}
+                  chain={parsed.chain}
+                  onScalarRange={setLegendRange}
+                  className="absolute inset-0"
+                />
+                <ColorBarLegend
+                  range={legendRange}
+                  colormap={colorMode === "shear" ? "hot" : "viridis"}
+                  thresholdPa={cellShearThresholdPa}
+                />
+              </>
             ) : (
               <ViewerPlaceholder slicing={slicing} />
             )}
@@ -353,9 +466,12 @@ function ViewerControls({
   setColorMode,
   showMeshOverlay,
   setShowMeshOverlay,
-  clipFraction,
-  setClipFraction,
+  clipMinFraction,
+  setClipMinFraction,
+  clipMaxFraction,
+  setClipMaxFraction,
   maxLayer,
+  clipRangeMin,
   clipRangeMax,
 }: {
   sliceResult: SliceResponse | null;
@@ -363,9 +479,12 @@ function ViewerControls({
   setColorMode: (m: ColorMode) => void;
   showMeshOverlay: boolean;
   setShowMeshOverlay: (v: boolean) => void;
-  clipFraction: number;
-  setClipFraction: (v: number) => void;
+  clipMinFraction: number;
+  setClipMinFraction: (v: number) => void;
+  clipMaxFraction: number;
+  setClipMaxFraction: (v: number) => void;
   maxLayer: number;
+  clipRangeMin: number;
   clipRangeMax: number;
 }) {
   return (
@@ -377,6 +496,7 @@ function ViewerControls({
             type="radio"
             checked={colorMode === "layer"}
             onChange={() => setColorMode("layer")}
+            aria-label="Color by layer index"
           />
           <span>Layer</span>
         </label>
@@ -385,6 +505,7 @@ function ViewerControls({
             type="radio"
             checked={colorMode === "z"}
             onChange={() => setColorMode("z")}
+            aria-label="Color by Z height"
           />
           <span>Z height</span>
         </label>
@@ -393,6 +514,7 @@ function ViewerControls({
             type="radio"
             checked={colorMode === "shear"}
             onChange={() => setColorMode("shear")}
+            aria-label="Color by wall shear stress"
           />
           <span>Wall shear</span>
         </label>
@@ -408,17 +530,36 @@ function ViewerControls({
       {sliceResult && maxLayer > 0 && (
         <div className="flex flex-1 items-center gap-2 text-xs">
           <span className="text-neutral-600">Layers</span>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={1 / Math.max(1, maxLayer)}
-            value={clipFraction}
-            onChange={(e) => setClipFraction(parseFloat(e.target.value))}
-            className="flex-1"
-          />
-          <span className="font-mono">
-            {clipRangeMax + 1}/{maxLayer + 1}
+          <div className="flex flex-1 items-center gap-1">
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={1 / Math.max(1, maxLayer)}
+              value={clipMinFraction}
+              onChange={(e) => {
+                const v = parseFloat(e.target.value);
+                setClipMinFraction(Math.min(v, clipMaxFraction));
+              }}
+              aria-label="First visible layer"
+              className="flex-1"
+            />
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={1 / Math.max(1, maxLayer)}
+              value={clipMaxFraction}
+              onChange={(e) => {
+                const v = parseFloat(e.target.value);
+                setClipMaxFraction(Math.max(v, clipMinFraction));
+              }}
+              aria-label="Last visible layer"
+              className="flex-1"
+            />
+          </div>
+          <span className="font-mono tabular-nums">
+            {clipRangeMin + 1}–{clipRangeMax + 1}/{maxLayer + 1}
           </span>
         </div>
       )}
@@ -426,10 +567,61 @@ function ViewerControls({
   );
 }
 
+function SliceErrorNotice({ err }: { err: SliceApiError | string }) {
+  if (typeof err === "string") {
+    return (
+      <div className="border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+        {err}
+      </div>
+    );
+  }
+  return (
+    <div className="border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+      <div className="font-medium">
+        Slice failed
+        {err.status > 0 ? ` (HTTP ${err.status})` : ""}
+        {err.type && err.type !== "server_error" ? ` — ${err.type}` : ""}
+      </div>
+      <div className="mt-1 break-words">{err.message}</div>
+      {err.field && (
+        <div className="mt-1 text-xs">
+          Field: <span className="font-mono">{err.field}</span>
+        </div>
+      )}
+      {err.detail && err.detail !== err.message && (
+        <details className="mt-1 text-xs">
+          <summary className="cursor-pointer text-red-700">Details</summary>
+          <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap font-mono text-[11px]">
+            {err.detail}
+          </pre>
+        </details>
+      )}
+    </div>
+  );
+}
+
 function ViewerPlaceholder({ slicing }: { slicing: boolean }) {
+  if (slicing) {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+        <div className="relative h-1 w-48 overflow-hidden rounded-full bg-neutral-200">
+          <div className="absolute inset-y-0 w-1/3 animate-[slicing-pulse_1.4s_ease-in-out_infinite] bg-neutral-700" />
+        </div>
+        <div className="text-xs text-neutral-500">
+          Slicing — this can take 10–60 s on large meshes.
+        </div>
+        <style jsx>{`
+          @keyframes slicing-pulse {
+            0% { left: -33%; }
+            100% { left: 100%; }
+          }
+        `}</style>
+      </div>
+    );
+  }
   return (
     <div className="absolute inset-0 flex items-center justify-center text-center text-sm text-neutral-500">
-      {slicing ? "Slicing…" : "Upload an STL, configure the recipe, then click Slice."}
+      Upload an STL, configure the recipe, then click Slice.
     </div>
   );
 }
