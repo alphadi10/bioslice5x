@@ -60,6 +60,13 @@ Each ADR is `NNNN-short-title.md` numbered sequentially. Contents:
 - [ADR-003 — GUI file-picker only (no inline recipe editor)](0003-gui-file-picker-only.md).
   Accepted. v0.1.0 GUI is a thin shim over the CLI; recipes are YAML
   files authored externally. Inline form editor deferred.
+- [ADR-004 — 3D toolpath viewer backend](0004-toolpath-viewer-backend.md).
+  Accepted. PyVista as the rendering backend; G-code-parser-based viewer
+  (decoupled from the slicer's in-memory SliceResult).
+- [ADR-005 — Phase 5 viewer scope](0005-phase5-viewer-scope.md).
+  Accepted. Stress coloring via `;STRESS:<Pa>` G-code token, layer
+  scrubbing via PyVista slider with Z-banded + ordinal-fallback layer
+  indexing, semi-transparent source-mesh overlay.
 
 ## Drift protection
 

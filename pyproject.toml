@@ -113,7 +113,10 @@ layers = [
     "bioslice5x.cli | bioslice5x.slicer",
     "bioslice5x.postprocessor",
     "bioslice5x.extruder | bioslice5x.pathing | bioslice5x.recipe.orientation",
-    "bioslice5x.bath | bioslice5x.profile | bioslice5x.recipe | bioslice5x.geometry | bioslice5x.kinematics.chain | bioslice5x.kinematics.singularity",
+    # recipe.orientation is at layer 3 above; the parent `bioslice5x.recipe`
+    # can't appear here without "shared descendants" — list its other
+    # submodules explicitly instead.
+    "bioslice5x.bath | bioslice5x.profile | bioslice5x.recipe.models | bioslice5x.recipe.loader | bioslice5x.geometry | bioslice5x.kinematics.chain | bioslice5x.kinematics.singularity",
     "bioslice5x.bioink | bioslice5x.errors | bioslice5x.kinematics.canonical",
 ]
 ignore_imports = [

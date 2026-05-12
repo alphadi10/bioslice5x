@@ -123,9 +123,9 @@
       "title": "PlaneBath",
       "type": "object"
     },
-    "Region": {
+    "RegionAll": {
       "additionalProperties": false,
-      "description": "Which part of the mesh a syringe owns.\n\nv1 supports only kind=\"all\" \u2014 the whole mesh. v2d adds spatial selectors.",
+      "description": "Whole-mesh region \u2014 the syringe owns every triangle.\n\nThis is the v1 default and the N=1 case of the general multi-region\nform (ARCHITECTURE.md \u00a78.5).",
       "properties": {
         "kind": {
           "const": "all",
@@ -134,18 +134,84 @@
           "type": "string"
         }
       },
-      "title": "Region",
+      "title": "RegionAll",
+      "type": "object"
+    },
+    "RegionBBox": {
+      "additionalProperties": false,
+      "description": "Axis-aligned bounding-box region in part frame, mm.\n\nThe syringe owns every layer polygon clipped against this box.\nLayers whose z falls outside [min.z, max.z] are dropped entirely;\nremaining layers' polygons are intersected with the XY rectangle.\n\nUse case: the CHIPS pancreatic reference geometry \u2014 fibrin/MIN6 core\ninside a cylindrical bbox at the centre of the construct, collagen\nshell covering the full envelope but with a hole carved out by the\ncore. (For \"outer ring\" syringe behaviour, set the shell syringe to\n`kind: all` \u2014 the bath self-heals through the inner band, and the\noverlap is fine because shear is bounded per-syringe.)\n\nBounds are inclusive on both ends. Half-open or open-on-one-side\nforms can be expressed with very large / negative sentinel values.",
+      "properties": {
+        "kind": {
+          "const": "bbox",
+          "default": "bbox",
+          "title": "Kind",
+          "type": "string"
+        },
+        "max": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Max",
+          "type": "array"
+        },
+        "min": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Min",
+          "type": "array"
+        }
+      },
+      "required": [
+        "min",
+        "max"
+      ],
+      "title": "RegionBBox",
       "type": "object"
     },
     "SlicingParams": {
       "additionalProperties": false,
       "properties": {
+        "infill_angle_deg": {
+          "default": 0.0,
+          "description": "Base angle of rectilinear scan-lines (deg); layer N rotates by 90\u00b7N.",
+          "title": "Infill Angle Deg",
+          "type": "number"
+        },
         "infill_density": {
           "default": 0.0,
+          "description": "Infill density in [0, 1]. 0.0 = perimeter only. 0.2 = 20% fill.",
           "maximum": 1.0,
           "minimum": 0.0,
           "title": "Infill Density",
           "type": "number"
+        },
+        "infill_pattern": {
+          "const": "rectilinear",
+          "default": "rectilinear",
+          "description": "Infill pattern (v0.1.0 ships rectilinear only \u2014 see ADR-002).",
+          "title": "Infill Pattern",
+          "type": "string"
         },
         "layer_height_mm": {
           "default": 0.2,
@@ -225,10 +291,15 @@
           "type": "number"
         },
         "region": {
-          "$ref": "#/$defs/Region",
-          "default": {
-            "kind": "all"
-          }
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RegionAll"
+            },
+            {
+              "$ref": "#/$defs/RegionBBox"
+            }
+          ],
+          "title": "Region"
         },
         "temperature_setpoint_c": {
           "anyOf": [

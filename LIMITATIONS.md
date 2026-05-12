@@ -92,7 +92,17 @@ publication-grade work.
 
 ## Tooling
 
-- **No GUI.** Library-first design with a CLI shim. Notebook and web
-  GUI integrations are downstream projects.
+- **Minimal GUI.** A Tkinter wrapper with file pickers, slice button,
+  a PyVista-backed "Preview toolpath" launcher, and Phase 5 viewer
+  options (color mode, mesh overlay). Full PrusaSlicer-style settings
+  panel with an inline recipe editor and embedded build-area mesh
+  viewer is Phase 6+.
+- **Toolpath viewer (Phase 4 + Phase 5)** now ships layer scrubbing,
+  shear-stress coloring (via `;STRESS:<Pa>` G-code tokens), and
+  semi-transparent source-mesh overlay. See ADR-005. Outstanding viewer
+  items: animated print-sequence playback, per-syringe segment coloring
+  in multi-syringe prints, segment-picking with a metadata panel, and
+  frame-aware mesh overlay for fixed-tilt prints (the mesh currently
+  renders in part frame, offset from the machine-frame toolpath).
 - **No live print monitoring.** The G-code is a static artifact; closed-
   loop sensing is out of scope for the slicer.

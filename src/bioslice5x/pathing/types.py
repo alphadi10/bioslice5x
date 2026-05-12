@@ -42,6 +42,16 @@ class Move:
     canonical joint configuration the postprocessor emits as A/C (or B/C)
     tokens. The Cartesian (`start`, `end`) coordinates are already in the
     machine frame — the kinematic transform happens upstream in the slicer.
+
+    `effective_length_mm_override` is set by the conformal path generator
+    to the *part-frame* arc length — the distance the deposition substrate
+    travels under the needle — which is what governs extrusion volume and
+    traversal time for 5-axis prints where the bed rotates beneath a
+    stationary toolhead. Without this override, conformal moves' machine-
+    frame Cartesian distance collapses to ≈0 (only the C joint changes
+    between vertices), the G-code E token rounds to zero, and the printer
+    wouldn't extrude. Flat 3-axis slicing leaves it None, so `length_mm`
+    falls back to the Cartesian distance.
     """
 
     start: Point3D
@@ -52,9 +62,23 @@ class Move:
     feed_mm_per_min: float
     segment_id: str  # stable identifier for error reporting
     joints: JointAngles | None = None
+    effective_length_mm_override: float | None = None
 
     @property
     def length_mm(self) -> float:
+        """Length governing extrusion volume and traversal time.
+
+        For 3-axis prints this equals the Cartesian distance. For 5-axis
+        conformal prints the slicer sets it to the part-frame arc length
+        via `effective_length_mm_override`; see the class docstring.
+        """
+        if self.effective_length_mm_override is not None:
+            return self.effective_length_mm_override
+        return self.start.distance_to(self.end)
+
+    @property
+    def cartesian_length_mm(self) -> float:
+        """The raw machine-frame Cartesian distance, always defined."""
         return self.start.distance_to(self.end)
 
     @property

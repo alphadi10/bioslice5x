@@ -1,0 +1,119 @@
+# CHIPS pancreatic-like construct — reference recipe.
+#
+# Mirrors the cell + bioink pairing in the CHIPS T1D program (Shiwarski
+# et al. 2025 Science Advances DOI 10.1126/sciadv.adu5905; FluidForm Bio
+# preclinical communications at ADA 85 / IPITA World Congress, July 2025):
+#
+#   - Syringe 0: fibrin (25 mg/mL fibrinogen) carrying MIN6 β-cells, the
+#     in vitro insulinoma line used in the published Science Advances
+#     work. The FluidForm Bio clinical program substitutes human donor
+#     islets at the same shear envelope; the recipe doesn't need to change.
+#   - Syringe 1: type I collagen at 8 mg/mL, the structural ECM shell.
+#
+# v0.1.1 update — bbox spatial regions wired.
+#   Syringe 0 owns an inner cylinder (the fibrin/MIN6 core); syringe 1
+#   owns the full envelope (the collagen shell). The bbox approximation
+#   to a cylindrical core is an axis-aligned 5x5x4 prism inside the
+#   10mm-radius disc — geometrically a square cross-section, not a
+#   round one, but close enough to demonstrate the per-syringe partition.
+#   A `submesh` selector (named groups in a multi-body STL/OBJ) for
+#   exact circular cores is a v0.2.x deliverable.
+#
+# v0.1.x LIMITATION — perfusion channels not yet shipped.
+#   Published CHIPS constructs have internal perfusable channels at
+#   ~100 µm diameter, fabricated via co-deposited sacrificial ink (the
+#   SWIFT pattern) or by direct void writing. Neither is wired in
+#   v0.1.x; the perfusion-channel writer is filed for v0.2.x. The
+#   envelope STL has no channels.
+#
+# v0.1.x LIMITATION — growth-factor stream not yet shipped.
+#   Published CHIPS work co-deposits ECM proteins, growth factors, and
+#   cells. The recipe schema supports adding a third syringe for growth
+#   factors but with `region: {kind: all}` the same overlap problem
+#   applies; defer to v0.1.1 with the submesh selector.
+#
+# Calibration status: every value here is an UNCALIBRATED literature
+# default. The G-code header will surface this on every emitted file.
+# Validate against your own wet-lab data before publication-grade work.
+#
+# Target hardware: Open5X Prusa (A+C, X-tilt). The Voron variant works
+# with a profile swap; no recipe change needed.
+
+name: chips_pancreatic_reference
+
+syringes:
+  - id: 0
+    bioink: fibrin_25mg_per_mL
+    cell_payload: MIN6_beta_cell
+    needle:
+      # 25G blunt-tip — ~260 µm ID, close to the FRESH/CHIPS working range
+      # (22G–30G). Smaller gauge → higher wall shear; the MIN6 1.5 kPa
+      # threshold is the binding constraint in the cell-viability check.
+      inner_diameter_mm: 0.26
+      length_mm: 12.7
+      gauge_label: "25G"
+    # Temperature setpoint matches the fibrin storage envelope (4–25 C);
+    # leaving None defers to the bioink midpoint (~14.5 C).
+    temperature_setpoint_c: 10.0
+    # Conservative purge volume for the enzymatic crosslink — fibrin can
+    # set in the needle if the dwell at the bath interface is long.
+    purge_volume_uL: 10.0
+    # Inner core: 5mm-side square cross-section, full 4mm height. An
+    # axis-aligned approximation to the cylindrical fibrin/MIN6 core in
+    # the published CHIPS construct. v0.2.x: replace with `submesh` for
+    # an exact circular core.
+    region:
+      kind: bbox
+      min: [-2.5, -2.5, 0.0]
+      max: [2.5, 2.5, 4.0]
+
+  - id: 1
+    bioink: collagen_i_8mg_per_mL
+    cell_payload: general_mammalian
+    needle:
+      # 25G to match the core syringe — keeps the shear envelope uniform
+      # and lets the two streams be swapped without retuning slicing params.
+      inner_diameter_mm: 0.26
+      length_mm: 12.7
+      gauge_label: "25G"
+    temperature_setpoint_c: 10.0
+    purge_volume_uL: 10.0
+    # Shell: full envelope. With naive Phase 2d layer ordering (syringe
+    # 0 first, then syringe 1), the collagen shell deposits over the
+    # already-printed core — the overlap is fine because the cells are
+    # in the fibrin and the FRESH bath self-heals through prior passes.
+    # v0.2.x cross-region travel optimization will skip the inner region
+    # for the shell pass.
+    region: { kind: all }
+
+slicing:
+  # Fine layer height for cm-scale soft-tissue fidelity. Tradeoff: print
+  # duration. A 4 mm tall envelope at 0.2 mm/layer is 20 layers; with
+  # two syringes per layer and naive ordering, ~40 syringe-layers total.
+  layer_height_mm: 0.2
+  line_width_mm: 0.4
+  # Slow feed protects mechanosensitive β-cells. With 25G needle and
+  # collagen K=80 Pa·s as the conservative bulk-viscosity input, this
+  # holds wall shear under the MIN6 1.5 kPa threshold at the chosen
+  # extrusion volumes (verified by the slicer's cell-viability check).
+  print_speed_mm_per_min: 60.0
+  travel_speed_mm_per_min: 600.0
+  # Conservative rectilinear infill at 30% — enough structure to avoid
+  # collapse during the day-14 revascularization window without
+  # over-saturating the construct with cell-free polymer.
+  infill_density: 0.3
+  infill_pattern: rectilinear
+
+# Flat orientation — CHIPS constructs are printed onto a plate. The 5-axis
+# capability is reserved for non-planar anatomical geometries (heart
+# valve leaflets, tracheal segments); a disc envelope doesn't need it.
+print_orientation:
+  kind: fixed
+  tilt_deg: 0.0
+  swivel_deg: 0.0
+
+notes: |
+  Reference recipe for the CHIPS pancreatic-like construct. v0.1.x ships
+  the bioink + cell pairing; geometric submesh region selectors and
+  internal perfusion-channel writing land in v0.1.1 and v0.2.x. See
+  docs/BIOPRINTING_REQUIREMENTS.md §6.1 for the published construct spec.

@@ -103,17 +103,90 @@ def test_two_syringe_stress_report_per_syringe() -> None:
     assert result.stress_report.max_by_syringe[1] > 0
 
 
-def test_bbox_region_raises_not_implemented_in_v0_1_0() -> None:
-    """ADR-style guard: bbox regions are a v0.1.1 deliverable; the Slicer
-    raises NotImplementedError with a clear message naming the feature."""
-    from bioslice5x.recipe.models import Region
+def test_region_all_constructs() -> None:
+    """`RegionAll` is the default per-syringe region — N=1 of the general form."""
+    from bioslice5x.recipe.models import RegionAll
 
-    # Constructing the recipe with kind="all" then patching the region to
-    # something the schema doesn't yet accept would normally fail at the
-    # pydantic layer. The Slicer's defensive check is here for the day the
-    # schema does accept it but the slicer doesn't.
-    # For v0.1.0, we just verify the slicer's check exists by checking the
-    # Region(kind="all") path works (covered by other tests in this file)
-    # and a future failure mode emits a clear message.
-    region = Region(kind="all")
+    region = RegionAll()
     assert region.kind == "all"
+
+
+def test_region_bbox_validates_min_le_max() -> None:
+    """`RegionBBox` rejects min > max on any axis with a clear message."""
+    from pydantic import ValidationError
+
+    from bioslice5x.recipe.models import RegionBBox
+
+    # Valid bbox round-trips.
+    ok = RegionBBox(min=(-1.0, -1.0, 0.0), max=(1.0, 1.0, 2.0))
+    assert ok.kind == "bbox"
+    assert ok.min == (-1.0, -1.0, 0.0)
+    # Invalid: min.x > max.x.
+    with pytest.raises(ValidationError, match=r"bbox min\.x"):
+        RegionBBox(min=(5.0, 0.0, 0.0), max=(1.0, 1.0, 1.0))
+
+
+def test_bbox_region_clips_layers_in_slice() -> None:
+    """The Slicer applies bbox clipping per syringe — confirm by slice volume.
+
+    A two-syringe recipe printing a 10mm cube: syringe 0 with a half-sized
+    bbox (≤ 5mm in x) produces strictly less extrusion than the full mesh,
+    and syringe 1 with `kind=all` produces the full mesh extrusion. The
+    sum of unique segment ids across syringes shows the bbox syringe owns
+    a strict subset.
+    """
+    from typing import cast
+
+    import trimesh
+
+    from bioslice5x import Slicer, load_profile
+    from bioslice5x.recipe.models import (
+        Needle,
+        Recipe,
+        RegionAll,
+        RegionBBox,
+        SlicingParams,
+        Syringe,
+    )
+
+    cube: Any = trimesh.creation.box(extents=[10.0, 10.0, 2.0])
+    cube.apply_translation([0.0, 0.0, 1.0])
+    mesh = cast(trimesh.Trimesh, cube)
+    needle = Needle(inner_diameter_mm=0.84, length_mm=12.7)
+    recipe = Recipe(
+        name="bbox_test",
+        syringes=[
+            Syringe(
+                id=0,
+                bioink="collagen_i_8mg_per_mL",
+                cell_payload="general_mammalian",
+                needle=needle,
+                # Quarter-cube bbox — 5x5x2 chunk in the (+x, +y) corner.
+                # Perimeter ratio vs full cube: 4*5 / 4*10 = 50% expected.
+                region=RegionBBox(min=(0.0, 0.0, 0.0), max=(5.0, 5.0, 2.0)),
+            ),
+            Syringe(
+                id=1,
+                bioink="fibrin_25mg_per_mL",
+                cell_payload="general_mammalian",
+                needle=needle,
+                region=RegionAll(),
+            ),
+        ],
+        slicing=SlicingParams(
+            layer_height_mm=0.5,
+            line_width_mm=0.5,
+            print_speed_mm_per_min=120.0,
+        ),
+    )
+    result = Slicer(profile=load_profile("hypothetical_3axis"), recipe=recipe).slice(mesh)
+    extrusion_by_syringe: dict[int, float] = result.total_bioink_uL_by_syringe
+    # Syringe 1 (RegionAll) deposits over the full mesh perimeter.
+    full = extrusion_by_syringe[1]
+    # Syringe 0 (quarter-bbox) — perimeter ratio is 4*5/4*10 = 0.5.
+    quarter = extrusion_by_syringe[0]
+    assert 0 < quarter < full
+    # Within ±25% of half: 0.375..0.625 of full.
+    assert 0.375 * full < quarter < 0.625 * full, (
+        f"quarter-bbox syringe should deposit ~half full (got {quarter:.3f} vs {full:.3f})"
+    )

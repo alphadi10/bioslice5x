@@ -88,10 +88,14 @@ def test_conformal_cylinder_produces_gcode_with_C_tokens() -> None:
         assert len(a_tokens) == 1, f"missing A token: {line!r}"
         assert len(c_tokens) == 1, f"missing C token: {line!r}"
     # The C values sweep across the layer — at least 8 distinct values present.
-    c_values = {line.split()[-3 if "E" in line else -2] for line in g1_lines}
-    # (Approximate filter — we just want to verify the C dimension is
-    # actually varying, not a constant.)
-    distinct_c = {tok for tok in c_values if tok.startswith("C")}
+    # Find the C token by prefix to stay robust against trailing comment
+    # tokens like `;STRESS:<Pa>` that the postprocessor emits.
+    distinct_c: set[str] = set()
+    for line in g1_lines:
+        for tok in line.split():
+            if tok.startswith("C") and len(tok) > 1 and tok[1] in "-0123456789.":
+                distinct_c.add(tok)
+                break
     assert len(distinct_c) >= 8, f"C should vary across the wrap; got {distinct_c}"
 
 

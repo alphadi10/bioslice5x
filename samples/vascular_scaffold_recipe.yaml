@@ -1,0 +1,79 @@
+# Vascular scaffold — multilayer rotational 5-axis test recipe.
+#
+# Stresses the conformal wrap-around-axis slicer end-to-end:
+#
+#   - Cylindrical fixture, 5 mm radius × 20 mm tall.
+#   - wrap_axis: z → swivel sweeps through C (the rotation axis on both
+#     Open5X profiles).
+#   - 360° per-layer arc → every axial pass is a complete revolution.
+#   - 0.4 mm layer height across 20 mm of axial extent → ~50 axial
+#     layers, each containing many θ-sampled vertices (per
+#     `conformal_arc_sampling_mm` from line_width_mm).
+#   - 22G needle + collagen-I → a realistic FRESH gauge for cell-laden
+#     vascular constructs. Per-syringe shear: ~1.9 kPa, safely under
+#     the general-mammalian 5 kPa threshold.
+#
+# Profile target: open5x_prusa (A+C kinematic chain). The swivel (C)
+# letter sweeps through ±180° on every layer; the tilt (A) letter stays
+# at 0 because wrap_axis=z is the swivel axis.
+#
+# Why this is the right rotational test:
+#
+#   - Every G1 line in the emitted G-code MUST carry an A token AND a C
+#     token (5-axis emission contract — Open5X §4 token order).
+#   - C values must vary smoothly within each axial layer (the rotation).
+#   - Z must vary monotonically between layers as `layer_height_mm`.
+#   - Joint-angle precision: the canonical (tilt, swivel) → G-code
+#     letter mapping must round-trip through the postprocessor's invert
+#     flag without precision loss to the configured decimal count.
+#
+# The vascular-graft scale matches in vitro test sections in the
+# Feinberg-group FRESH literature.
+
+name: vascular_scaffold_5axis_test
+
+syringes:
+  - id: 0
+    bioink: collagen_i_8mg_per_mL
+    cell_payload: general_mammalian
+    needle:
+      # 22G is the workhorse for FRESH vascular scaffolds — small enough
+      # for ~vessel-scale features but big enough to stay under the
+      # general-mammalian shear envelope at realistic feed rates.
+      # 25G + collagen at this speed over-shears (~7.4 kPa).
+      inner_diameter_mm: 0.41
+      length_mm: 12.7
+      gauge_label: "22G"
+    temperature_setpoint_c: 10.0
+    purge_volume_uL: 5.0
+    region: { kind: all }
+
+slicing:
+  layer_height_mm: 0.4
+  line_width_mm: 0.4
+  print_speed_mm_per_min: 60.0
+  travel_speed_mm_per_min: 600.0
+  infill_density: 0.0   # tube wall only — no infill on a thin-walled scaffold
+  infill_pattern: rectilinear
+  mode:
+    kind: wrap_around_axis
+    wrap_axis: z
+    cylinder_radius_mm: 5.0
+    arc_start_deg: -180.0
+    arc_end_deg: 180.0
+    # Default arc sampling = line_width_mm; for a 5 mm radius cylinder
+    # at 0.4 mm sampling, each layer carries ~78 vertices around the
+    # full circle (2π·5 / 0.4 ≈ 78.5). Adequate for the C-token
+    # smoothness check.
+
+# Fixed flat orientation here is unused (the conformal slicer derives
+# joint angles per vertex). Kept for schema completeness.
+print_orientation:
+  kind: fixed
+  tilt_deg: 0.0
+  swivel_deg: 0.0
+
+notes: |
+  5-axis precision test fixture. Each emitted G1 line must carry A+C
+  tokens with the canonical (tilt, swivel) → letter mapping applied
+  through the open5x_prusa profile's invert flags.

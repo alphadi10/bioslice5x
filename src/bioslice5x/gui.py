@@ -25,7 +25,7 @@ import tkinter as tk
 import webbrowser
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from bioslice5x import __version__
 from bioslice5x.profile.loader import _library_dir as _profile_library_dir
@@ -55,6 +55,15 @@ class BioSlice5XApp(tk.Tk):
         self._profile_var = tk.StringVar(value=SHIPPED_PROFILES[0])
         self._recipe_var = tk.StringVar()
         self._output_var = tk.StringVar()
+        # Viewer options (Phase 5). Color mode: "z" or "shear". Stress
+        # threshold is the active cell payload's max wall shear, surfaced
+        # automatically from the last slice result so the user doesn't
+        # have to type it; mesh overlay toggle is opt-in.
+        self._color_by_var = tk.StringVar(value="z")
+        self._show_mesh_overlay_var = tk.BooleanVar(value=False)
+        # Captured from the last successful slice so the preview can pick
+        # the right cell-shear threshold without re-loading the recipe.
+        self._last_stress_threshold_pa: float | None = None
 
         self._build_menus()
         self._build_widgets()
@@ -122,11 +131,36 @@ class BioSlice5XApp(tk.Tk):
             state=tk.DISABLED,
         )
         self._open_folder_button.pack(side=tk.LEFT, padx=4)
+        self._preview_button = ttk.Button(
+            button_frame,
+            text="Preview toolpath",
+            command=self._open_preview,
+            state=tk.DISABLED,
+        )
+        self._preview_button.pack(side=tk.LEFT, padx=4)
 
-        # Row 5: output log (scrollable)
+        # Row 4b: viewer-mode options. A small row beneath the action
+        # buttons keeps the GUI to the same vertical density as the v0.1.0
+        # surface while exposing the Phase 5 viewer features.
+        viewer_opts = ttk.Frame(frame)
+        viewer_opts.grid(row=5, column=0, columnspan=3, sticky=tk.EW, **pad)
+        ttk.Label(viewer_opts, text="Color by:").pack(side=tk.LEFT, padx=(0, 4))
+        ttk.Radiobutton(viewer_opts, text="Z height", value="z", variable=self._color_by_var).pack(
+            side=tk.LEFT
+        )
+        ttk.Radiobutton(
+            viewer_opts, text="Wall shear stress", value="shear", variable=self._color_by_var
+        ).pack(side=tk.LEFT, padx=(0, 12))
+        ttk.Checkbutton(
+            viewer_opts,
+            text="Overlay source mesh",
+            variable=self._show_mesh_overlay_var,
+        ).pack(side=tk.LEFT)
+
+        # Row 6: output log (scrollable)
         log_frame = ttk.Frame(frame)
-        log_frame.grid(row=5, column=0, columnspan=3, sticky=tk.NSEW, **pad)
-        frame.rowconfigure(5, weight=1)
+        log_frame.grid(row=6, column=0, columnspan=3, sticky=tk.NSEW, **pad)
+        frame.rowconfigure(6, weight=1)
         frame.columnconfigure(1, weight=1)
         self._log = tk.Text(log_frame, wrap=tk.WORD, height=18, state=tk.DISABLED)
         self._log.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -220,6 +254,15 @@ class BioSlice5XApp(tk.Tk):
             slicer = Slicer(profile=prof, recipe=rec)
             result = slicer.slice(m)
             result.write_gcode(output)
+            # Capture the most-restrictive (smallest) cell-shear threshold
+            # across the recipe's syringes, so the preview's shear color
+            # mode can mark the binding safety limit.
+            try:
+                self._last_stress_threshold_pa = min(
+                    result.stress_report.threshold_by_syringe.values()
+                )
+            except (ValueError, AttributeError):
+                self._last_stress_threshold_pa = None
             self.after(
                 0,
                 self._append_log,
@@ -231,6 +274,7 @@ class BioSlice5XApp(tk.Tk):
                 ),
             )
             self.after(0, lambda: self._open_folder_button.config(state=tk.NORMAL))
+            self.after(0, lambda: self._preview_button.config(state=tk.NORMAL))
         except Exception as exc:
             self.after(0, self._append_log, f"\nERROR: {type(exc).__name__}: {exc}\n")
         finally:
@@ -241,6 +285,57 @@ class BioSlice5XApp(tk.Tk):
         self._log.insert(tk.END, text)
         self._log.see(tk.END)
         self._log.config(state=tk.DISABLED)
+
+    def _open_preview(self) -> None:
+        """Open the PyVista toolpath viewer on the just-sliced G-code.
+
+        Runs in a separate thread because PyVista's blocking `show()`
+        would freeze the Tk event loop. The viewer is its own window
+        and exits cleanly when the user closes it.
+        """
+        output = self._output_var.get().strip()
+        if not output or not Path(output).is_file():
+            messagebox.showerror("No G-code", "Slice first, then preview.")
+            return
+        profile_name = self._profile_var.get().strip()
+        color_by_value = self._color_by_var.get()
+        # Cast the user's StringVar through the ColorMode literal — only
+        # "z" and "shear" are reachable from the radio buttons.
+        color_by: Any = color_by_value if color_by_value in ("z", "shear") else "z"
+        stress_threshold_pa = self._last_stress_threshold_pa if color_by == "shear" else None
+        mesh_path: str | None = (
+            self._mesh_var.get().strip()
+            if self._show_mesh_overlay_var.get() and self._mesh_var.get().strip()
+            else None
+        )
+
+        def _run() -> None:
+            try:
+                from bioslice5x.profile.loader import load_profile
+                from bioslice5x.visualization.preview import preview_gcode
+
+                bv = None
+                try:
+                    prof = load_profile(profile_name)
+                    bv = (prof.build_volume.x_mm, prof.build_volume.y_mm, prof.build_volume.z_mm)
+                except Exception:
+                    pass
+                preview_gcode(
+                    output,
+                    build_volume=bv,
+                    show=True,
+                    color_by=color_by,
+                    cell_stress_threshold_pa=stress_threshold_pa,
+                    source_mesh_path=mesh_path,
+                )
+            except Exception as exc:
+                self.after(
+                    0,
+                    self._append_log,
+                    f"\nPREVIEW ERROR: {type(exc).__name__}: {exc}\n",
+                )
+
+        threading.Thread(target=_run, daemon=True).start()
 
     def _open_output_folder(self) -> None:
         path = self._output_var.get().strip()

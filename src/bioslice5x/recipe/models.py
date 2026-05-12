@@ -34,15 +34,53 @@ class Needle(BaseModel):
     gauge_label: str = ""  # e.g., "25G" — informational
 
 
-class Region(BaseModel):
-    """Which part of the mesh a syringe owns.
+class RegionAll(BaseModel):
+    """Whole-mesh region — the syringe owns every triangle.
 
-    v1 supports only kind="all" — the whole mesh. v2d adds spatial selectors.
+    This is the v1 default and the N=1 case of the general multi-region
+    form (ARCHITECTURE.md §8.5).
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
-
     kind: Literal["all"] = "all"
+
+
+class RegionBBox(BaseModel):
+    """Axis-aligned bounding-box region in part frame, mm.
+
+    The syringe owns every layer polygon clipped against this box.
+    Layers whose z falls outside [min.z, max.z] are dropped entirely;
+    remaining layers' polygons are intersected with the XY rectangle.
+
+    Use case: the CHIPS pancreatic reference geometry — fibrin/MIN6 core
+    inside a cylindrical bbox at the centre of the construct, collagen
+    shell covering the full envelope but with a hole carved out by the
+    core. (For "outer ring" syringe behaviour, set the shell syringe to
+    `kind: all` — the bath self-heals through the inner band, and the
+    overlap is fine because shear is bounded per-syringe.)
+
+    Bounds are inclusive on both ends. Half-open or open-on-one-side
+    forms can be expressed with very large / negative sentinel values.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    kind: Literal["bbox"] = "bbox"
+    min: tuple[float, float, float]
+    max: tuple[float, float, float]
+
+    @model_validator(mode="after")
+    def _check_min_lt_max(self) -> RegionBBox:
+        for axis, (lo, hi) in enumerate(zip(self.min, self.max, strict=True)):
+            if lo > hi:
+                axis_name = "xyz"[axis]
+                raise ValueError(f"bbox min.{axis_name} ({lo}) must be <= max.{axis_name} ({hi})")
+        return self
+
+
+# Discriminated union — pydantic picks the right model from the `kind`
+# tag. Future kinds (`submesh`, `volume_fraction`) become siblings here
+# without touching the slicer's region-dispatch code path.
+Region = RegionAll | RegionBBox
 
 
 class Syringe(BaseModel):
@@ -51,7 +89,7 @@ class Syringe(BaseModel):
     bioink: str  # name; resolved against the bioink library at slice time
     cell_payload: str  # name; resolved against the cell library
     needle: Needle
-    region: Region = Region()
+    region: Region = Field(default_factory=RegionAll)
     purge_volume_uL: float = Field(default=5.0, ge=0.0)
     # Syringe physical properties; defaults match a 1 mL BD slip-tip syringe.
     barrel_inner_diameter_mm: float = Field(default=4.65, gt=0.0)
@@ -196,4 +234,12 @@ class Recipe(BaseModel):
         return self
 
 
-__all__ = ["Needle", "Recipe", "Region", "SlicingParams", "Syringe"]
+__all__ = [
+    "Needle",
+    "Recipe",
+    "Region",
+    "RegionAll",
+    "RegionBBox",
+    "SlicingParams",
+    "Syringe",
+]

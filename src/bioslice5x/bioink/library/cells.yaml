@@ -9,7 +9,9 @@
 # Sources: Blaeser et al. 2016 (Adv Healthc Mater 5(3):326-333) for the
 # baseline 5 kPa "general mammalian" threshold; endothelial-specific work
 # summarized in MDPI Biomimetics 16/12/436 for the more conservative
-# HUVEC/endothelial 2 kPa default.
+# HUVEC/endothelial 2 kPa default. The MIN6 β-cell threshold is a
+# conservative placeholder for the CHIPS T1D reference geometry — verify
+# against your own viability assay before publishing.
 
 cells:
   general_mammalian:
@@ -25,3 +27,10 @@ cells:
     max_wall_shear_stress_pa: 2000.0
     calibrated_against: "uncalibrated, literature default (endothelial-specific reviews)"
     notes: "Primary endothelial cells are more mechanosensitive than the general baseline."
+
+  MIN6_beta_cell:
+    cell_type: "MIN6 pancreatic β-cell (insulinoma line, T1D / CHIPS reference)"
+    cell_density_per_mL: 5.0e6
+    max_wall_shear_stress_pa: 1500.0
+    calibrated_against: "uncalibrated, literature default (Shiwarski et al. 2025 Science Advances DOI 10.1126/sciadv.adu5905; conservative β-cell shear threshold per PMC9756521 review)"
+    notes: "CHIPS pancreatic-like construct cell payload. MIN6 is the in vitro insulinoma line; FluidForm Bio's T1D clinical program substitutes human donor islets at the same shear envelope. Threshold (1.5 kPa) is conservative — β-cells are mechanosensitive and shear-induced dedifferentiation is a documented failure mode. Density tuned to ~2000 IEQ-equivalent for a centimeter-scale construct; adjust for your geometry."

@@ -1,5 +1,33 @@
 # Contributing to BioSlice5X
 
+## For wet-lab collaborators (no Python experience required)
+
+BioSlice5X is designed to be useful to scientists who don't write code.
+Two paths to contribute meaningful work without touching Python:
+
+**1. Calibrate a bioink against your own viability data.** Pick a bioink
+in `src/bioslice5x/bioink/library/` — every record carries a
+`calibrated_against: "uncalibrated, literature default"` field. Run the
+shear-viability assay on your specific lot/cell-line, replace the value
+with your measurement, and update the `calibrated_against:` string with
+a citation form: `"Your lab name, YYYY-MM-DD, cell type at density,
+assay type, n=N"`. The G-code header surfaces this provenance on every
+emitted file. Open a PR with the updated YAML — no Python edits needed.
+
+**2. Contribute a recipe.** A `samples/*.yaml` recipe captures one
+specific print recipe (mesh + bioinks + slicing params + bath). New
+recipes drop into `samples/`, optionally with a sample STL produced via
+`samples/generate_samples.py`. The CHIPS pancreatic recipe is the
+template — copy it and adapt.
+
+**3. Report calibration drift.** If a shipped value doesn't match your
+wet-lab measurements, open a GitHub issue with the assay protocol, the
+measured value, and the source citation. We'd rather mark a value as
+"contested, see issue #N" than ship a wrong default.
+
+For all three, no Python knowledge is required. The Python contributors
+listed below handle the code review and the CI gate.
+
 ## Python versions
 
 **Runtime requirement: Python 3.11+.** `pyproject.toml` declares

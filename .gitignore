@@ -27,3 +27,19 @@ venv/
 
 # project-specific
 *.gcode.actual
+
+# Scratch files from interactive development. The canonical samples
+# live in samples/ + tests/golden/; root-level *.gcode / stray *.yaml
+# are ad-hoc experimentation that shouldn't ship.
+/*.gcode
+/cube.gcode
+/cylinder.gcode
+/tilted_cube.gcode
+/prusa_tilted.yaml
+/unsafe.yaml
+
+# Demo command output (`bioslice5x demo` temp dirs).
+bioslice5x_demo_*/
+
+# Import-linter cache.
+.import_linter_cache/

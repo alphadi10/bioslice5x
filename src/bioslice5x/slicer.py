@@ -22,6 +22,7 @@ from bioslice5x.bioink.loader import load_default_library
 from bioslice5x.errors import ProfileValidationError
 from bioslice5x.extruder.syringe import DisplacementSyringe
 from bioslice5x.extruder.validate import StressReport, validate_path
+from bioslice5x.geometry.clip import clip_layers_by_region
 from bioslice5x.geometry.conformal_slicer import wrap_around_axis_slice
 from bioslice5x.geometry.flat_slicer import flat_slice
 from bioslice5x.kinematics.chain import (
@@ -37,6 +38,7 @@ from bioslice5x.profile.models import MachineProfile
 from bioslice5x.recipe.models import (
     FlatSlicing,
     Recipe,
+    RegionBBox,
     Syringe,
     WrapAroundAxisSlicing,
 )
@@ -146,18 +148,23 @@ class Slicer:
     def slice(self, mesh: trimesh.Trimesh, *, force: bool = False) -> SliceResult:
         """Run the pipeline: slice → transform → paths → shear validation → G-code.
 
-        Supports three_axis (Phase 2a), tilt_swivel (Phase 2b) chains, and
-        flat or wrap-around-axis conformal slicing (Phase 2c). Multi-syringe
-        (N>1) lands in Phase 2d.
+        Supports three_axis (Phase 2a), tilt_swivel (Phase 2b) chains,
+        flat or wrap-around-axis conformal slicing (Phase 2c), N-syringe
+        multi-material (Phase 2d), and `RegionAll` / `RegionBBox` spatial
+        selectors (v0.1.1). bbox clipping applies to flat-slicing layers;
+        conformal-mode bbox clipping is a v0.2.x deliverable.
 
         `force=True` records cell-viability violations in the stress report
         but does not raise. Reserved for the CLI's `--force` development flag.
         """
         for s in self.recipe.syringes:
-            if s.region.kind != "all":
+            if isinstance(s.region, RegionBBox) and isinstance(
+                self.recipe.slicing.mode, WrapAroundAxisSlicing
+            ):
                 raise NotImplementedError(
-                    f"Phase 2d v0.1.0 supports Region(kind='all') only; got "
-                    f"{s.region.kind!r}. bbox/submesh regions are a v0.1.1 deliverable."
+                    "Region(kind='bbox') is currently supported on flat slicing "
+                    "only; conformal wrap-around-axis bbox clipping is a v0.2.x "
+                    "deliverable. Use Region(kind='all') for conformal recipes."
                 )
 
         chain = kinematic_chain_from_profile(self.profile)
@@ -188,6 +195,14 @@ class Slicer:
         from bioslice5x.kinematics.canonical import JointAngles  # local — see rrf.py
 
         layers = flat_slice(mesh, layer_height_mm=self.recipe.slicing.layer_height_mm)
+        # Apply the syringe's spatial region. `RegionAll` is a no-op;
+        # `RegionBBox` drops layers outside the z-range and clips the
+        # remaining layers' polygons against the XY rectangle.
+        layers = clip_layers_by_region(layers, syringe.region)
+        if not layers:
+            # Region-filtered everything out — emit no moves for this
+            # syringe. Caller's per-syringe loop continues.
+            return []
         # Flat slicing uses one orientation per print (provider's layer 0).
         # Per-layer orientation against flat slices is well-defined but the
         # 2c v1 demo doesn't exercise it; 2c.1 will. For 3-axis chains, joints

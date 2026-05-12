@@ -1,0 +1,88 @@
+cff-version: 1.2.0
+message: >-
+  If you use BioSlice5X in research, please cite it using the metadata below.
+  Also cite the underlying scientific work — the FRESH technique (Lee et al.
+  2019 in Science) and the CHIPS construct (Shiwarski et al. 2025 in Science
+  Advances) — when reporting work that depends on those methodologies.
+title: "BioSlice5X: open-source 5-axis slicer for syringe bioprinting"
+version: 0.1.1-dev
+date-released: 2026-05-11
+abstract: >-
+  BioSlice5X is an open-source 5-axis slicer targeting syringe-based
+  bioprinting in a yield-stress support bath (the FRESH/CHIPS workflow).
+  It generates RepRapFirmware G-code for Open5X Prusa and Voron profiles
+  with cell-viability-aware path validation, multi-syringe coordination,
+  per-syringe spatial region selectors, and a 3D toolpath viewer with
+  per-segment wall-shear-stress coloring and layer scrubbing.
+license: MIT
+type: software
+repository-code: "https://github.com/alphadi10/bioslice5x"
+keywords:
+  - bioprinting
+  - 5-axis
+  - slicer
+  - FRESH
+  - CHIPS
+  - bioink
+  - cell viability
+  - tissue engineering
+  - open source
+authors:
+  - given-names: BioSlice5X
+    family-names: Contributors
+references:
+  - type: article
+    title: >-
+      3D bioprinting of collagen to rebuild components of the human heart
+    authors:
+      - family-names: Lee
+        given-names: Andrew
+      - family-names: Hudson
+        given-names: Andrew R.
+      - family-names: Shiwarski
+        given-names: Daniel J.
+      - family-names: Tashman
+        given-names: Joshua W.
+      - family-names: Hinton
+        given-names: Thomas J.
+      - family-names: Yerneni
+        given-names: Saigopalakrishna
+      - family-names: Bliley
+        given-names: Jacqueline M.
+      - family-names: Campbell
+        given-names: Phil G.
+      - family-names: Feinberg
+        given-names: Adam W.
+    journal: Science
+    year: 2019
+    volume: 365
+    issue: 6452
+    start: 482
+    end: 487
+    doi: "10.1126/science.aav9051"
+  - type: article
+    title: >-
+      Single-step fabrication of fully biologic perfusable tissue constructs
+      via FRESH 3D bioprinting (CHIPS)
+    authors:
+      - family-names: Shiwarski
+        given-names: Daniel J.
+      - family-names: Hudson
+        given-names: Andrew R.
+      - family-names: Feinberg
+        given-names: Adam W.
+    journal: Science Advances
+    year: 2025
+    doi: "10.1126/sciadv.adu5905"
+  - type: article
+    title: >-
+      Open5x: Accessible 5-axis 3D printing and conformal slicing
+    authors:
+      - family-names: Hong
+        given-names: Freddie
+    journal: HardwareX
+    year: 2022
+    note: >-
+      Open5X is the open-source 5-axis FDM platform whose kinematic chain
+      and G-code conventions BioSlice5X reuses. See docs/OPEN5X_NOTES.md
+      for the upstream reference.

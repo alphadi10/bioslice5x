@@ -15,7 +15,7 @@ from bioslice5x.profile.models import (
     TiltSwivelAxis,
 )
 from bioslice5x.recipe.loader import load_recipe
-from bioslice5x.recipe.models import Needle, Recipe, Region, SlicingParams, Syringe
+from bioslice5x.recipe.models import Needle, Recipe, RegionAll, SlicingParams, Syringe
 
 
 def test_load_hypothetical_3axis_profile() -> None:
@@ -136,7 +136,7 @@ def test_recipe_rejects_duplicate_syringe_ids() -> None:
                     bioink="x",
                     cell_payload="y",
                     needle=Needle(inner_diameter_mm=0.4, length_mm=12.7),
-                    region=Region(),
+                    region=RegionAll(),
                 ),
                 Syringe(
                     id=0,  # duplicate

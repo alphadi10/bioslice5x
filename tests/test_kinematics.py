@@ -401,8 +401,13 @@ def test_invert_flag_flips_only_axis_signs() -> None:
         if b == i:
             continue
         differences += 1
-        # Only G1 lines should differ, and the only difference must be on
-        # the A/C tokens.
+        # The META block carries `tilt_invert=...` / `swivel_invert=...`
+        # so the viewer can apply the inverse transform. Those lines
+        # legitimately differ when the flag flips; everything else that
+        # differs must be a G1 line where only A and C signs change.
+        if b.startswith(";META: tilt_invert=") or b.startswith(";META: swivel_invert="):
+            assert i.startswith(b[: b.index("=") + 1])
+            continue
         assert b.startswith("G1"), (b, i)
         assert i.startswith("G1"), (b, i)
         b_toks = b.split()
@@ -414,8 +419,8 @@ def test_invert_flag_flips_only_axis_signs() -> None:
             letter = bt[0]
             assert letter in ("A", "C"), f"non-axis token differs: {bt!r} vs {it!r}"
             assert float(bt[1:]) == pytest.approx(-float(it[1:]), abs=1e-9)
-    # We expect every G1 print line to differ (and only those) because both
-    # A and C are non-zero in the recipe.
+    # We expect every G1 print line to differ (and only those + the two
+    # META lines for the invert flags).
     assert differences > 0
 
 

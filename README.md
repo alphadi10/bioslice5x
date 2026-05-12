@@ -1,13 +1,23 @@
 # BioSlice5X
 
+[![CI](https://github.com/alphadi10/bioslice5x/actions/workflows/ci.yml/badge.svg)](https://github.com/alphadi10/bioslice5x/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](pyproject.toml)
+
 **Open-source 5-axis slicer for syringe-based bioprinting.** Target
 workflow: FRESH (Freeform Reversible Embedding of Suspended Hydrogels)
 into a gelatin support bath, with multi-syringe coordinated deposition
 and cell-viability-aware path validation.
 
-**Status: v0.1.0.** Phase 1 → 2d shipped. Single-syringe and multi-
-syringe (kind=all regions) flat and wrap-around-axis slicing produce
-valid RepRapFirmware G-code for the Open5X Prusa and Voron profiles.
+| Z-height colored toolpath | Wall shear stress, MIN6 1.5 kPa threshold | Source-mesh overlay |
+|---|---|---|
+| ![demo cube](docs/screenshots/demo_cube.png) | ![CHIPS shear](docs/screenshots/chips_shear.png) | ![CHIPS mesh overlay](docs/screenshots/chips_mesh_overlay.png) |
+
+**Status: v0.1.1-dev.** Phases 1 → 2d + Phase 4/5 viewer + bbox region
+selector shipped. Single- and multi-syringe flat and wrap-around-axis
+slicing produces valid RepRapFirmware G-code for the Open5X Prusa and
+Voron profiles. The CHIPS T1D reference recipe (fibrin/MIN6 core +
+collagen shell) prints end-to-end with per-syringe `bbox` regions.
 
 ## Why this exists
 
@@ -19,21 +29,91 @@ syringe bioprinting. BioSlice5X fills that gap.
 
 ## Quickstart
 
+The fastest path to a working viewer window:
+
 ```bash
-git clone https://github.com/bioslice5x/bioslice5x
+git clone https://github.com/alphadi10/bioslice5x
 cd bioslice5x
 uv sync --all-extras --dev
-uv run pytest
+uv run bioslice5x demo            # opens the viewer on a sliced 10mm cube
+```
 
-# Slice a sample cube on the hypothetical 3-axis profile:
+This is the **one-command first-run validation** — it generates a cube
+mesh in memory, slices it on the always-shipped `hypothetical_3axis`
+profile, and opens the viewer with shear coloring + mesh overlay. Use
+this to verify your install works before you commit cells to a print.
+
+For headless / CI / screenshot mode:
+
+```bash
+uv run bioslice5x demo --screenshot demo.png    # PNG, no window
+uv run bioslice5x demo --no-viewer              # just slice
+```
+
+Manual slicing with one of the bundled samples:
+
+```bash
 uv run bioslice5x slice samples/cube_10mm.stl \
     --profile hypothetical_3axis \
     --recipe samples/cube_collagen_recipe.yaml \
     --output out.gcode
+
+# The CHIPS T1D reference recipe (fibrin/MIN6 core + collagen shell):
+uv run bioslice5x slice samples/chips_pancreatic_envelope.stl \
+    --profile open5x_prusa \
+    --recipe samples/chips_pancreatic_recipe.yaml \
+    --output chips.gcode
 ```
 
 See [`docs/tutorial/quickstart.md`](docs/tutorial/quickstart.md) for the
 full walkthrough.
+
+## Install from source (for collaborators)
+
+Two paths, depending on your Python tooling:
+
+```bash
+# Path 1 — uv (recommended; matches the project's dev setup):
+git clone https://github.com/alphadi10/bioslice5x
+cd bioslice5x
+uv sync --all-extras --dev
+
+# Path 2 — pip from git, no clone:
+pip install "bioslice5x[viz] @ git+https://github.com/alphadi10/bioslice5x"
+```
+
+Either path gives you the `bioslice5x` CLI on your `$PATH`. The `[viz]`
+extra pulls in PyVista for the 3D viewer; without it the CLI's `slice`
+and `dry-run` subcommands still work, but `preview` and `demo` will tell
+you to install the extra.
+
+Once you have a green local test run (`uv run pytest`), you're ready to
+swap in your own recipes and profiles — the bundled samples are
+deliberately self-contained so you can copy them as templates.
+
+## 3D toolpath viewer
+
+After slicing, inspect the result:
+
+```bash
+# Default — extrusion moves colored by Z height (PrusaSlicer-style).
+uv run bioslice5x preview out.gcode --profile open5x_prusa
+
+# Color by per-segment wall shear stress, with red marking the
+# cell-viability threshold (MIN6 β-cells: 1500 Pa).
+uv run bioslice5x preview out.gcode --profile open5x_prusa \
+    --color-by shear --stress-threshold-pa 1500
+
+# Overlay the source STL semi-transparent — compare printed vs asked-for.
+uv run bioslice5x preview out.gcode --profile open5x_prusa \
+    --mesh samples/cube_10mm.stl
+```
+
+In the interactive window, the layer-scrubber slider at the bottom-left
+controls how many layers are visible. The "Preview toolpath" button in
+the Tkinter GUI launches the same viewer with the active color mode and
+mesh-overlay toggles. See [ADR-005](docs/adr/0005-phase5-viewer-scope.md)
+for the design.
 
 ## Hardware target
 

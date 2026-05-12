@@ -94,6 +94,39 @@ def _meta_block(
         bath_calibration = "none"
     else:
         bath_calibration = _calibration_token(recipe.bath.calibrated_against)
+    # Kinematic chain config — viewer needs this to apply the inverse
+    # transform that turns machine-frame XYZ + A + C back into the part-
+    # frame coordinates the print actually lives in. Without these,
+    # 5-axis prints render as a degenerate stack of points because the
+    # toolhead stays still while the bed rotates.
+    tilt = profile.kinematic_chain.tilt
+    swivel = profile.kinematic_chain.swivel
+    tilt_lines = (
+        [
+            f";META: tilt_letter={tilt.letter}",
+            f";META: tilt_axis={tilt.rotates_about}",
+            f";META: tilt_invert={'true' if tilt.invert else 'false'}",
+        ]
+        if tilt is not None
+        else [
+            ";META: tilt_letter=none",
+            ";META: tilt_axis=none",
+            ";META: tilt_invert=false",
+        ]
+    )
+    swivel_lines = (
+        [
+            f";META: swivel_letter={swivel.letter}",
+            f";META: swivel_axis={swivel.rotates_about}",
+            f";META: swivel_invert={'true' if swivel.invert else 'false'}",
+        ]
+        if swivel is not None
+        else [
+            ";META: swivel_letter=none",
+            ";META: swivel_axis=none",
+            ";META: swivel_invert=false",
+        ]
+    )
     return [
         f";META: bioink_calibration={bioink_calibration}",
         f";META: cells_calibration={cells_calibration}",
@@ -101,6 +134,8 @@ def _meta_block(
         ";META: shear_model=newtonian_conservative",
         ";META: extrusion_mode=displacement",
         f";META: kinematic_chain={profile.kinematic_chain.kind}",
+        *tilt_lines,
+        *swivel_lines,
         f";META: firmware={profile.firmware}",
         f";META: safety_override={'true' if force_override else 'false'}",
         f";META: syringe_count={len(syringes_by_id)}",
@@ -277,6 +312,13 @@ def emit_rrf(
     lines.append("; ---- start of print ----")
     tilt_spec = profile.kinematic_chain.tilt
     swivel_spec = profile.kinematic_chain.swivel
+    # Per-segment shear lookup. Keyed by Move.segment_id; only extrusion
+    # moves carry entries (travel/zero-flow moves are skipped by
+    # validate_path). The viewer reads these back via the `;STRESS:`
+    # token in the trailing comment — see visualization/preview.py.
+    stress_by_segment: dict[str, float] = {
+        s.segment_id: s.wall_shear_stress_pa for s in stress_report.per_segment
+    }
     active_syringe_id: int | None = None
     for move in moves:
         # Tool-change: emit T<n> when switching syringes. Naive — does no
@@ -307,7 +349,11 @@ def emit_rrf(
         if not move.is_travel:
             tokens.append(f"E{_fmt(plunger_mm, decimals=5)}")
         tokens.append(f"F{_fmt(move.feed_mm_per_min, decimals=1)}")
-        comment = "" if not move.is_travel else "  ; travel"
+        if move.is_travel:
+            comment = "  ; travel"
+        else:
+            stress_pa = stress_by_segment.get(move.segment_id)
+            comment = f"  ;STRESS:{_fmt(stress_pa, decimals=2)}" if stress_pa is not None else ""
         lines.append(" ".join(tokens) + comment)
     lines.append("; ---- end of print ----")
     lines.append("M400      ; wait for moves to finish")

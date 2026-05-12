@@ -10,6 +10,20 @@ This document translates the biological and material constraints of FRESH/CHIPS 
 
 For the slicer, the operational picture is: multiple temperature-controlled syringes mounted on a 5-axis motion platform deposit different inks into a yield-stress bath, with toolpaths that may need to follow curved anatomical surfaces rather than flat horizontal layers.
 
+## 1.1 Modality Landscape — Why Syringe Extrusion in a Support Bath
+
+BioSlice5X targets one specific cell of a wider bioprinting modality matrix. The choice is deliberate: support-bath extrusion is the only modality with (a) an active open-source hardware ecosystem (Open5X, Voron-derived bioprinters, Replistruder syringe extruders) and (b) a clinically advanced program (FluidForm Bio's T1D CHIPS implant, six-month in vivo efficacy in diabetic SCID Beige mice per FluidForm Bio communications at ADA 85 / IPITA World Congress, July 2025). Other modalities are commercially dominated and out of scope for v1.
+
+| Modality | Native resolution | Cell viability | Open-source hardware? | Slicer fit |
+|---|---|---|---|---|
+| Inkjet | ~50 µm | Moderate | Limited | Not a target — low-viscosity inks only, poor structural fidelity |
+| **Extrusion + support bath (FRESH)** | **~20 µm filament, ~100 µm channels (CHIPS 2025)** | **High (shear-bounded)** | **Yes (Open5X, Voron-bio)** | **Primary target** |
+| Laser-assisted (LIFT) | <10 µm | >95% | No | Out of scope — closed commercial systems |
+| SLA/DLP photopolymerization | 20–250 µm | >90% | Partial (consumer SLA repurposed) | v0.3+ as sibling `Extruder` Protocol impl; needs `PhotodoseError` analog of `CellViabilityError` |
+| Volumetric (CAL / tomographic) | <30 µm | >90% | No | Out of scope — proprietary control software (BIO INX, Readily3D); architectural fork (3D tomographic projection, not 2D layer slicing) |
+
+The article-derived comparison reinforces the slicer's existing scoping decision in `LIMITATIONS.md`: ship the FRESH/CHIPS extrusion path to publication-grade fidelity first; add DLP as a sibling modality only after that path is calibrated against wet-lab data.
+
 ## 2. Support Bath Specification
 
 | Property | Value | Source |
@@ -36,6 +50,16 @@ Numbers below are typical operating ranges aggregated from the search-cited revi
 | Decellularized ECM (dECM) | 6–20 mg/mL | ~0.1–10, tissue-source dependent | Power-law shear-thinning | 4 C load, gels at 37 C | Used in CHIPS as one of the co-deposited materials (per CMU 2025 press) |
 
 The slicer's bioink record should carry at minimum: density, consistency index K, flow index n, yield stress τ₀, working/storage temperature, crosslinking modality (thermal, ionic, photo, enzymatic), and per-cell-type maximum allowable wall shear stress.
+
+### 3.1 Bioink Material Categories
+
+Bioinks divide into three categories that drive design tradeoffs visible to the user. The slicer should carry this as a `category` field on each `Bioink` record so the recipe editor and viewer can filter and color-code by category.
+
+| Category | Examples | Strength | Weakness | Slicer implication |
+|---|---|---|---|---|
+| Natural polymers | Collagen I, gelatin, fibrin, hyaluronic acid, silk | Native ECM mimicry; high bioactivity; cells "recognize" the matrix | Mechanical weakness; lot-to-lot variation | Dominant FRESH inks; calibration provenance is load-bearing — every value needs `calibrated_against` populated |
+| Synthetic polymers | PEG, PCL, PLA, PEGDA | Tunable mechanics and degradation; reproducible | Lower inherent bioactivity; usually needs RGD functionalization | Often paired with photopolymerization (PEGDA + LAP at 405 nm) — sibling modality |
+| Ceramics / composites | Hydroxyapatite, calcium phosphate, nano-HA / polyamide | Osteogenic; compressive strength | Brittle; not extrusion-friendly without polymer carrier | Bone-tissue niche; out of scope for v1 |
 
 ## 4. Cell Viability Constraints
 
@@ -74,6 +98,18 @@ Operationally this implies the slicer must:
 
 Practical print typically uses 2–4 materials; the slicer's data model should not hard-cap at 2.
 
+### 6.1 Reference Geometry — CHIPS Pancreatic Construct
+
+The CHIPS pancreatic-like construct is the most fully specified reference recipe in the open literature and a good first-class sample for the slicer:
+
+- **Core**: fibrin (fibrinogen 25 mg/mL nominal) loaded with MIN6 β-cells, ~2,000 islet-equivalents (IEQ) per construct in the FluidForm Bio formulation reported at ADA 85 / IPITA World Congress 2025 (search-derived from FluidForm Bio communications).
+- **Shell**: type I collagen, deposited as the structural matrix around the fibrin core, with perfusable channels at ~100 µm diameter (per Shiwarski et al. 2025, DOI 10.1126/sciadv.adu5905).
+- **Scale**: centimeter-scale overall construct (per Science Advances 2025 abstract and CMU press 2025-04-23).
+- **In vivo behavior**: normal blood glucose maintained for 6 months in diabetic SCID Beige mice; reversion to diabetic state on explant; revascularization by host vessels by day 14 with no fibrotic capsule (per FluidForm Bio ADA 85 / IPITA 2025 communications; primary publication pending — verify against final paper).
+- **Cell payload**: MIN6 β-cells in the published in vitro work (per Science Advances 2025); the FluidForm Bio T1D clinical program substitutes human donor islets, with CRISPR-edited hypoimmunogenic iPSC-derived islets as the eventual off-the-shelf path.
+
+For the slicer this is a two-syringe recipe: syringe 0 deposits the fibrin/MIN6 core on a `Region(kind="submesh", name="core")`; syringe 1 deposits the collagen shell on `Region(kind="submesh", name="shell")`. The bath is gelatin microparticles at FRESH v2 sub-25 µm spec. The recipe ships in `samples/chips_pancreatic_recipe.yaml`.
+
 ## 7. Sterility & Process Window
 
 The CMU press piece and Science Advances abstract do not specify cleanroom class, exact bath sterilization, or ambient temperature in numerical detail. Reasonable defaults from the broader literature:
@@ -100,6 +136,14 @@ Synthesizing the above into concrete asks:
 9. **Deterministic, reviewable output.** G-code (or equivalent) must be plain-text, diff-friendly, and carry comment annotations naming the bioink, computed wall shear, and any user overrides per segment — bioprinting is regulated-adjacent and traceability matters.
 10. **Open-source bioink and cell library.** Ship with seeded defaults for collagen I, fibrin, alginate, GelMA, dECM, and a small catalog of cell-type shear limits; make it trivially user-editable since values vary by lab.
 
+## 8.1 Regulatory Context — FDA NAM Directive (April 2025)
+
+The FDA's April 2025 directive phasing out mandatory animal testing for certain drug applications in favor of human-based New Approach Methodologies (NAMs) — explicitly including bioprinted tissues — is the single most consequential regulatory shift for the bioprinting field's commercial trajectory (per FDA April 2025 announcement, summarized in industry press 2025-Q2; verify against the final FDA guidance document). For BioSlice5X this implies one concrete deliverable beyond the v0.1.0 surface:
+
+- **`SliceResult.regulatory_report()`** — a Markdown summary suitable as an appendix in a NAM submission, listing per-bioink calibration provenance, per-cell-payload viability margin (computed vs threshold), max observed wall shear per syringe, bath calibration provenance, and the SHA of the source mesh + recipe + profile. This is a v0.1.1 deliverable filed in `LIMITATIONS.md`.
+
+Implantable bioprinted constructs remain a Class III combination-product path (FDA PMA, EMA equivalent, NMPA, TGA — no harmonized standard exists as of 2025-Q2 per FDA / IMDRF public materials). The slicer's role is to make the calibration story auditable; it is not, and should not be, a regulatory submission tool.
+
 ## 9. Open Questions / Things to Verify with Wet-Lab Experts
 
 - Exact FRESH v2 / CHIPS gelatin microparticle size distribution and yield stress (the 60 µm number is from the original 2015 paper; CHIPS uses a finer bath but the abstract doesn't quote a value).
@@ -124,3 +168,8 @@ Synthesizing the above into concrete asks:
 - [Extracellular Matrix Microparticles Improve GelMA Bioink Resolution at Ambient Temperature (Galliger 2022, PMC9757590)](https://pmc.ncbi.nlm.nih.gov/articles/PMC9757590/)
 - [Non-planar embedded 3D printing for complex hydrogel manufacturing (Bioprinting 2022)](https://www.sciencedirect.com/science/article/abs/pii/S2405886622000525)
 - [A review on cell damage, viability, and functionality during 3D bioprinting (PMC9756521)](https://pmc.ncbi.nlm.nih.gov/articles/PMC9756521/)
+- FluidForm Bio T1D preclinical data — ADA 85th Scientific Sessions (Chicago, July 2025) and IPITA World Congress (Pisa, July 2025), search-derived summary; primary peer-reviewed publication pending.
+- FDA April 2025 directive on New Approach Methodologies (NAMs) — phase-out of mandatory animal testing for certain drug applications, search-derived from FDA April 2025 announcement and industry coverage. Verify against final guidance.
+- Stanford Marsden / Skylar-Scott labs, *Science* 2025 — 200× faster algorithmic vascular tree generation at organ scale (search-derived summary; verify against primary paper).
+- Wyss Institute SWIFT / co-SWIFT — Sacrificial Writing Into Functional Tissue (search-derived; Skylar-Scott et al., *Science Advances* 2019 for SWIFT primary).
+- 3DBio Therapeutics / PrintBio AuriNovo™ Phase 1/2a clinical trial — patient-matched auricular cartilage implant, March 2022 first-in-human (search-derived from 3DBio Therapeutics 2022 press; verify against ClinicalTrials.gov entry).
