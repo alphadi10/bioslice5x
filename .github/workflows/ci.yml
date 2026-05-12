@@ -17,6 +17,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install xvfb + OpenGL libs for headless PyVista
+        # PyVista's screenshot smoke tests call into VTK's OpenGL renderer.
+        # Without an X server + mesa-utils the C-level context creation
+        # segfaults — which Python can't catch, so per-test try/except
+        # blocks don't help. tests/conftest.py calls `pyvista.start_xvfb()`
+        # and falls back to skipping the rendering tests if xvfb isn't
+        # available; this step keeps it available on the CI runner.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libgl1-mesa-dri libglx-mesa0 libosmesa6
+
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:
