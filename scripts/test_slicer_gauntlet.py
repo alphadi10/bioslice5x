@@ -544,6 +544,82 @@ def case_clamping_exceeded_refusal(mesh: trimesh.Trimesh) -> dict[str, Any]:
     return {"issues": []}
 
 
+def case_flat_5axis_jubilee(mesh: trimesh.Trimesh) -> dict[str, Any]:
+    """Jubilee chassis: tilt is letter B (rotates about Y), swivel is letter C."""
+    recipe = flat_recipe(orientation=FixedOrientation(tilt_deg=12.0, swivel_deg=-20.0))
+    result = _slice_local("open5x_jubilee", recipe, mesh)
+    g = result.gcode
+    return {
+        "gcode_size": len(g),
+        "moves": len(result.moves),
+        "issues": _check_emitted(
+            g,
+            {
+                "; BioSlice5X G-code (5-axis tilt+swivel)": True,
+                ";META: tilt_letter=B": True,
+                ";META: tilt_axis=y": True,
+                ";META: swivel_letter=C": True,
+                ";META: swivel_axis=z": True,
+                "B12": True,  # tilt token on B
+                "C-20": True,  # swivel token on C
+                "rotaries home": True,
+                # Must NOT emit A or U/V tokens on this chassis.
+                "A12": False,
+                "U12": False,
+            },
+        ),
+    }
+
+
+def case_flat_5axis_prusa_uv(mesh: trimesh.Trimesh) -> dict[str, Any]:
+    """Current-upstream Open5X Prusa firmware: rotaries emit as U + V."""
+    recipe = flat_recipe(orientation=FixedOrientation(tilt_deg=15.0, swivel_deg=30.0))
+    result = _slice_local("open5x_prusa_uv", recipe, mesh)
+    g = result.gcode
+    return {
+        "gcode_size": len(g),
+        "moves": len(result.moves),
+        "issues": _check_emitted(
+            g,
+            {
+                ";META: tilt_letter=U": True,
+                ";META: swivel_letter=V": True,
+                "U15": True,
+                "V30": True,
+                "rotaries home": True,
+                # Must NOT emit A or C tokens on this firmware variant.
+                "A15": False,
+                "C30": False,
+            },
+        ),
+    }
+
+
+def case_conformal_wrap_z_jubilee(mesh: trimesh.Trimesh) -> dict[str, Any]:
+    """Jubilee swivel sweep via wrap_axis=z. Tilt B stays at 0."""
+    result = _slice_local("open5x_jubilee", conformal_recipe(wrap_axis="z"), mesh)
+    g = result.gcode
+    g1_lines = [ln for ln in g.splitlines() if ln.startswith("G1 ")]
+    distinct_c: set[str] = set()
+    for line in g1_lines:
+        for tok in line.split():
+            if tok.startswith("C") and len(tok) > 1 and tok[1] in "-0123456789.":
+                distinct_c.add(tok)
+                break
+    b_zero_count = sum(1 for ln in g1_lines for tok in ln.split() if tok == "B0")
+    return {
+        "gcode_size": len(g),
+        "moves": len(result.moves),
+        "distinct_C": len(distinct_c),
+        "B0_tokens": b_zero_count,
+        "issues": []
+        if len(distinct_c) >= 30 and b_zero_count > 100
+        else [
+            f"expected wide C sweep + many B0 tokens on Jubilee wrap_z; got C={len(distinct_c)}, B0={b_zero_count}"
+        ],
+    }
+
+
 # ---------------------------------------------------------------------------
 # Remote (production API) smoke
 # ---------------------------------------------------------------------------
@@ -671,6 +747,9 @@ CASES: list[tuple[str, Callable[[trimesh.Trimesh], dict[str, Any]], type[Excepti
     ("cell_viability_force_override", case_cell_viability_force_override, None),
     ("axis_range_clamp_raises", case_axis_range_clamp, ProfileValidationError),
     ("clamping_exceeded_360_voron", case_clamping_exceeded_refusal, ClampingExceededError),
+    ("flat_5axis_jubilee_12_-20", case_flat_5axis_jubilee, None),
+    ("flat_5axis_prusa_uv_15_30", case_flat_5axis_prusa_uv, None),
+    ("conformal_wrap_z_jubilee", case_conformal_wrap_z_jubilee, None),
 ]
 
 

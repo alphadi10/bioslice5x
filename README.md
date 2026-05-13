@@ -118,10 +118,16 @@ for the design.
 ## Hardware target
 
 3-axis Cartesian XYZ + tilt and swivel rotaries on the build platform,
-matching Open5X's kinematic family. v0.1.0 ships two real machine profiles:
+matching Open5X's kinematic family. Four real-machine profiles ship,
+one per chassis variant documented in the upstream Open5X repo:
 
-- **`open5x_prusa`** — A about X, C about Z. Tilt range ±200°.
-- **`open5x_voron`** — B about Y, C about Z. Tilt range ±110°.
+- **`open5x_prusa`** (default) — Prusa i3, Version_Save 2021 firmware: tilt = **A** about X, swivel = **C** about Z. Tilt range ±200°.
+- **`open5x_prusa_uv`** — Prusa i3, current upstream firmware that exposes rotaries as **U** (tilt) + **V** (swivel). Same physical kinematics; different G-code letters.
+- **`open5x_voron`** — Voron 0 conversion: tilt = **B** about Y, swivel = **C** about Z. Tilt range ±110°.
+- **`open5x_jubilee`** — Jubilee Toolchanger conversion: tilt = **B** about Y, swivel = **C** about Z. Tilt range ±200°.
+
+Plus `hypothetical_3axis` (no rotaries) for bench-testing the pipeline
+on a stock 3-axis printer.
 
 Adding a new machine profile is a YAML file in
 `src/bioslice5x/profile/library/`; no code changes required for the same
@@ -129,6 +135,13 @@ kinematic family. See [`docs/PHASE_2B_NOTES.md`](docs/PHASE_2B_NOTES.md)
 for the worked examples and
 [`docs/OPEN5X_NOTES.md`](docs/OPEN5X_NOTES.md) for the upstream-reference
 conventions.
+
+**Before the first print on any new build**, run
+`samples/commissioning_rotary_sign_check.gcode` to verify the rotary sign
+convention matches the right-hand rule the slicer assumes. Wrong-sign
+rotaries produce mirrored toolpaths that collide with deposited geometry.
+The check is 60 seconds; the fix (`invert: true` in the profile YAML) is
+one line. See `docs/OPEN5X_NOTES.md` §2.
 
 RepRapFirmware (Duet 2/3) G-code dialect. Marlin support is a v0.2.0+
 deliverable.

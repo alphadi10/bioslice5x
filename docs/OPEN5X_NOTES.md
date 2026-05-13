@@ -30,12 +30,33 @@ Open5X's axis letter naming is **inconsistent across chassis variants** — this
 | Jubilee Toolchanger | B | C | B about Y, C about Z | `3D_Model/Jubilee Tool changer/README.md` |
 | Voron 0 | B | C | B about Y, C about Z | `3D_Model/Voron_0/DuetConfig/sys/config.g` |
 
-**BioSlice5X adopts A + C, matching the Prusa Version_Save and the convention specified in the project brief:**
+**BioSlice5X ships one profile per documented chassis variant in `src/bioslice5x/profile/library/`:**
+
+| Profile YAML | Chassis | Tilt letter / axis | Swivel letter / axis | Tilt range |
+|---|---|---|---|---|
+| `open5x_prusa.yaml` (default) | Prusa i3, Version_Save 2021 firmware | A / world X | C / world Z | ±200° |
+| `open5x_prusa_uv.yaml` | Prusa i3, current upstream firmware (M584 U+V) | U / world X | V / world Z | ±200° |
+| `open5x_voron.yaml` | Voron 0 conversion | B / world Y | C / world Z | ±110° |
+| `open5x_jubilee.yaml` | Jubilee Toolchanger conversion | B / world Y | C / world Z | ±200° |
+| `hypothetical_3axis.yaml` | Bench-test, no rotaries | — | — | — |
+
+All five profiles share the same canonical (tilt, swivel) kinematics math. The only thing that varies is the post-processor's letter mapping (`tilt.letter` / `swivel.letter` in YAML) and the per-axis range. Adding a new chassis is a YAML file, not a code change.
+
+The default `open5x_prusa` follows the Prusa Version_Save (2021) and ISO 841:
 - **A axis** — tilt, rotates about world **X**, right-hand rule (positive A → bed-top rotates from +Z toward +Y).
 - **C axis** — plate, rotates about world **Z**, right-hand rule (positive C → +X-direction of plate rotates toward +Y).
 - Zero pose: A = 0 → plate normal is +Z (bed horizontal). C = 0 → an operator-chosen mechanical mark on the plate aligns with +X.
 
-The Jubilee README is the most explicit text in the Open5X repo about axis-letter conventions and states: *"A axis would rotate around the X-axis by convention; B axis rotates around the Y-axis by convention; C axis rotates around the Z-axis by convention"* (`3D_Model/Jubilee Tool changer/README.md`). This is consistent with ISO 841. The Jubilee chassis happens to physically tilt about Y, so it uses B, not A — but our brief specifies the Prusa-style tilt-about-X configuration, so A is correct.
+The Jubilee README is the most explicit text in the Open5X repo about axis-letter conventions and states: *"A axis would rotate around the X-axis by convention; B axis rotates around the Y-axis by convention; C axis rotates around the Z-axis by convention"* (`3D_Model/Jubilee Tool changer/README.md`). This is consistent with ISO 841: the Jubilee chassis tilts about Y, so its profile uses B + C; the Prusa tilts about X, so its profile uses A + C.
+
+> **Before printing on any freshly built or freshly reflashed machine**: load
+> `samples/commissioning_rotary_sign_check.gcode` and watch the bed. The
+> sequence emits ±15° tilt and ±30° swivel moves at low feed; if either
+> axis rotates the opposite direction from the right-hand-rule expectation,
+> flip the `invert` flag on the affected axis in your active profile YAML.
+> No kinematics code change is required — `invert` is a postprocessor flag.
+> The cost of getting this wrong on a cell-laden print is destroyed payload;
+> the cost of the commissioning check is one minute of bed motion.
 
 ### RRF kinematic declaration
 

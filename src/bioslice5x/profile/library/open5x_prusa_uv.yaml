@@ -1,0 +1,53 @@
+# Open5X Prusa i3 — U + V firmware variant.
+#
+# The CURRENT upstream `Duet2_Configuration/sys/config.g` declares the
+# kinematics as:
+#
+#   M584 X0 Y1 Z2 E3 U4 V5         ; Driver Mapping
+#   M669 K0 X1:0:0:0:0 Y0:-1:0:0:0 Z0:0:1:0:0 U0:0:0:1:0 V0:0:0:0:1
+#
+# meaning the two rotaries are exposed to G-code under the letters
+# **U** (tilt, drive 4) and **V** (swivel, drive 5). The per-axis
+# limits on the same config (`M208 ... A-200:200 B-12000:12000`)
+# still carry the older A/B labels — that's a stale comment from the
+# 2021 Version_Save snapshot, not a contradiction; RepRapFirmware
+# attaches limits by axis-name, and on this firmware build the active
+# axis names are U and V.
+#
+# Use this profile if your Open5X build is running the current
+# upstream firmware unchanged. If your config.g overrides the M584
+# mapping to expose A and C instead (matching the Version_Save
+# convention this project recommends), use `open5x_prusa` instead.
+#
+# All physical numbers are identical to `open5x_prusa.yaml`; only the
+# G-code letters change. The kinematics math is unaffected.
+
+name: open5x_prusa_uv
+firmware: rrf
+
+build_volume:
+  x_mm: [-126.0, 125.0]
+  y_mm: [-92.3, 50.0]
+  z_mm: [-1.0, 125.0]
+
+kinematic_chain:
+  kind: tilt_swivel
+  tilt:
+    rotates_about: x
+    letter: U
+    invert: false
+    range_deg: [-200.0, 200.0]
+    max_feed_deg_per_min: 5000.0
+  swivel:
+    rotates_about: z
+    letter: V
+    invert: false
+    range_deg: [-360000.0, 360000.0]
+    max_feed_deg_per_min: 12000.0
+
+max_xy_feed_mm_per_min: 12000.0
+max_z_feed_mm_per_min: 750.0
+max_e_feed_uL_per_min: 50.0
+has_heated_bed: false
+
+notes: "5-axis Open5X Prusa i3 running the current upstream firmware that exposes rotaries as U (tilt) + V (swivel). Same physical kinematics as open5x_prusa; only the G-code letters differ."
